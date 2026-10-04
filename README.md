@@ -38,10 +38,13 @@ Then fill in `web/.env.local`:
 | Variable | Needed for |
 | --- | --- |
 | `SANITY_API_READ_TOKEN` | Draft previews and Presentation Tool. Viewer role. |
-| `SANITY_API_WRITE_TOKEN` | Checkout, enquiries and notify-me. Editor role. Without it the forms explain that ordering is not switched on. |
+| `SANITY_API_WRITE_TOKEN` | Checkout, enquiries, notify-me and customer accounts. Editor role. Without it the forms explain that ordering is not switched on. |
+| `AUTH_SECRET` | Signs customer session cookies. Any random string of 32+ characters. Without it, sign-in is hidden and guest checkout still works. |
 
-Create both at https://www.sanity.io/manage/project/3krwldhr/api. Restart the
-dev server after changing them. Do not run `npm run build:web` while
+Create the two tokens at https://www.sanity.io/manage/project/3krwldhr/api.
+Generate the secret with
+`node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"`.
+Restart the dev server after changing them. Do not run `npm run build:web` while
 `next dev` is running; they share `.next` and the dev cache goes stale.
 
 ## Studio
@@ -54,10 +57,12 @@ Two workspaces, one Studio:
   an **Insights** tab that reads interest signals, orders, units sold, revenue
   and size demand from the commerce dataset. Presentation Tool previews the
   storefront with click-to-edit.
-- **Commerce** (`/commerce`): orders grouped by what needs doing and by
-  payment state, service requests by stage, product interest grouped live per
-  product. **Customers** appear only for administrators; the allowed roles are
-  one constant in `studio/structure/commerce.ts`.
+- **Commerce** (`/commerce`): orders grouped by what needs doing with live
+  counts, cash still to collect, service requests by stage, product interest
+  grouped live per product. **Customers** appear only for administrators; the
+  allowed roles are one constant in `studio/structure/commerce.ts`. Editors
+  are the order managers; no extra role is needed.
+- **Vision**, the GROQ console, is shown to administrators only.
 
 Built-in roles are Administrator, Editor and Viewer. Custom roles need a
 Growth plan.
@@ -87,11 +92,39 @@ from site settings, and computes totals itself.
 
 ### Payments
 
-The manual gateway covers cash on delivery, bKash, Nagad and bank transfer by
-giving the shopper instructions and recording the order as awaiting payment.
-The team confirms payment in the Studio. A provider integration (bKash
-merchant API, SSLCommerz, Stripe) is a new adapter implementing
-`core/ports/payment-gateway.ts`, registered in the container.
+Cash on delivery only, by the owner's decision. The gateway adapter returns
+instructions to have cash ready, the order is saved as unpaid, and the team
+marks it paid in the Studio once the courier settles. Settings can list other
+methods, but each needs its own adapter implementing
+`core/ports/payment-gateway.ts` before checkout will accept it.
+
+### Cart
+
+The bag is a cookie (`cc_cart`) holding slugs, variant IDs, quantities and
+print requests, never prices. Quantity and removal are plain forms posting to
+server actions, so the bag works without JavaScript. The header badge reads
+the cookie on the client so catalogue pages stay static. `quoteCart` prices
+the bag against the live catalogue; the cart page and checkout both use it,
+so what the shopper sees is what the order records.
+
+### Customer accounts
+
+Phone and password. The password hash (Node scrypt, salted, parameters stored
+with the hash) lives on the customer document in the private `commerce`
+dataset under an `auth` object the Studio hides from editors. Sessions are
+HMAC-signed stateless tokens in an httpOnly cookie; rotating `AUTH_SECRET`
+signs everyone out. A guest who registers with the phone they ordered with
+takes over that customer record and its order history. Login failures do not
+reveal whether a phone exists, and a dummy hash check keeps timing even.
+
+### Orders in the Studio
+
+An order placed on the storefront is written as a published document in the
+`commerce` dataset and appears under **Orders › Needs attention** in the
+Commerce workspace immediately; the folder titles carry live counts. Editors
+move it through Confirmed, Being prepared, With the courier and Delivered,
+record courier and tracking, and mark cash collected. Every list shows the
+payment and fulfilment badges.
 
 ## Content model
 
@@ -101,7 +134,7 @@ merchant API, SSLCommerz, Stripe) is a new adapter implementing
 | `productVariant` | production | Size and colour with a hex swatch, own SKU, price override and stock |
 | `category`, `brand`, `collection`, `service` | production | Taxonomy, label, curated shelf, made-to-order work |
 | `siteSettings` | production | Singleton: brand copy, contact, delivery charges, payment methods, print fee, default SEO |
-| `customer` | commerce | Contact record matched on phone. Not a login. |
+| `customer` | commerce | Contact record matched on phone; also the account when `auth` is set |
 | `order` | commerce | Snapshotted line items, totals, delivery address with Dhaka zones, payment details, status workflow |
 | `serviceRequest` | commerce | Quote requests from the services page |
 | `productInterest` | commerce | Notify-me, wishlist and enquiry signals per product |

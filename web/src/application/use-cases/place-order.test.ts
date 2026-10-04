@@ -12,10 +12,11 @@ import type {ProductRepository} from '@/core/ports/product-repository'
 import type {SiteSettingsRepository} from '@/core/ports/site-settings-repository'
 
 import {makePlaceOrder, type PlaceOrderInput} from './place-order'
+import {makeQuoteCart} from './quote-cart'
 
 const bdt = (amount: number) => createMoney(amount, 'BDT')
 
-const jersey: Product = {
+export const jersey: Product = {
   id: 'prod-arg',
   slug: 'argentina-home',
   name: 'Argentina Home Jersey',
@@ -40,12 +41,13 @@ const jersey: Product = {
   categories: [],
   variants: [
     {id: 'v-m', size: 'M', colour: 'Home', colourHex: null, sku: 'ARG-M', price: null, stock: 5},
-    {id: 'v-xl', size: 'XL', colour: 'Home', colourHex: null, sku: 'ARG-XL', price: bdt(1550), stock: 0},
+    {id: 'v-xl', size: 'XL', colour: 'Home', colourHex: null, sku: 'ARG-XL', price: bdt(1550), stock: 2},
+    {id: 'v-s', size: 'S', colour: 'Home', colourHex: null, sku: 'ARG-S', price: null, stock: 0},
   ],
   seo: emptySeoMetadata,
 }
 
-const tee: Product = {
+export const tee: Product = {
   ...jersey,
   id: 'prod-tee',
   slug: 'plain-tee',
@@ -58,7 +60,7 @@ const tee: Product = {
   stock: 3,
 }
 
-const settings: SiteSettings = {
+export const settings: SiteSettings = {
   storeName: 'CoreCraft',
   tagline: null,
   heroHeading: null,
@@ -70,29 +72,40 @@ const settings: SiteSettings = {
   whatsapp: null,
   social: {facebook: null, instagram: null, tiktok: null, youtube: null},
   shipping: {insideDhaka: bdt(70), outsideDhaka: bdt(130), freeFrom: bdt(2500)},
-  enabledPaymentMethods: ['cod', 'bkash'],
-  paymentInstructions: {bkashNumber: '01700', nagadNumber: null, bankDetails: null},
+  enabledPaymentMethods: ['cod'],
+  paymentInstructions: {bkashNumber: null, nagadNumber: null, bankDetails: null},
   jerseyCustomisationFee: bdt(150),
   defaultSeo: emptySeoMetadata,
 }
 
-function harness(overrides: {products?: Product[]; existingCustomer?: CustomerRecord | null} = {}) {
-  const catalogue = overrides.products ?? [jersey, tee]
-  const saved: {order: NewOrder; customerId: string}[] = []
-  const createdCustomers: CustomerRecord[] = []
-
-  const products: ProductRepository = {
+export function fakeProducts(catalogue: Product[] = [jersey, tee]): ProductRepository {
+  return {
     listPurchasable: async () => [],
     listPurchasableSlugs: async () => [],
     findSeoBySlug: async () => null,
     findBySlug: async (slug) => catalogue.find((product) => product.slug === slug) ?? null,
   }
+}
+
+function harness(overrides: {products?: Product[]; existingCustomer?: CustomerRecord | null} = {}) {
+  const saved: {order: NewOrder; customerId: string}[] = []
+  const createdCustomers: CustomerRecord[] = []
+
   const customers: CustomerRepository = {
+    findById: async () => null,
     findByPhone: async () => overrides.existingCustomer ?? null,
+    findCredentialsByPhone: async () => null,
     create: async (customer) => {
       const record = {id: `cust-${createdCustomers.length + 1}`, ...customer}
       createdCustomers.push(record)
       return record
+    },
+    register: async () => {
+      throw new Error('not used')
+    },
+    recordLogin: async () => {},
+    updateProfile: async () => {
+      throw new Error('not used')
     },
   }
   const orders: OrderRepository = {
@@ -101,15 +114,16 @@ function harness(overrides: {products?: Product[]; existingCustomer?: CustomerRe
       return {id: `order-${saved.length}`}
     },
     findByNumber: async () => null,
+    listByCustomer: async () => [],
   }
   const settingsRepository: SiteSettingsRepository = {get: async () => settings}
   const gateway: PaymentGateway = {
-    supports: ['cod', 'bkash'],
+    supports: ['cod'],
     begin: async () => ({kind: 'instructions', title: 'Pay', steps: [], payTo: null}),
   }
 
   const placeOrder = makePlaceOrder({
-    products,
+    quoteCart: makeQuoteCart({products: fakeProducts(overrides.products), currency: 'BDT'}),
     customers,
     orders,
     settings: settingsRepository,
@@ -121,8 +135,9 @@ function harness(overrides: {products?: Product[]; existingCustomer?: CustomerRe
 }
 
 const baseInput: PlaceOrderInput = {
-  items: [{productSlug: 'argentina-home', variantId: 'v-m', quantity: 2, customisation: null}],
+  items: [{productSlug: 'argentina-home', variantId: 'v-m', quantity: 2, print: null}],
   customer: {name: 'Mahdi', phone: '01700000000', email: null},
+  customerId: null,
   shippingAddress: {
     fullName: 'Mahdi',
     phone: '01700000000',
@@ -135,13 +150,11 @@ const baseInput: PlaceOrderInput = {
     country: 'Bangladesh',
   },
   paymentMethod: 'cod',
-  paymentSenderNumber: null,
-  paymentReference: null,
   customerNote: null,
 }
 
 describe('placeOrder', () => {
-  it('prices from the catalogue, not the request, and charges zone delivery', async () => {
+  it('prices from the catalogue, not the request, and applies free delivery over the threshold', async () => {
     const {placeOrder, saved} = harness()
     const result = await placeOrder(baseInput)
 
@@ -149,50 +162,59 @@ describe('placeOrder', () => {
     const {order} = saved[0]
     expect(order.lines[0].unitPrice).toEqual(bdt(1450))
     expect(order.lines[0].lineTotal).toEqual(bdt(2900))
-    expect(order.totals.shippingFee).toEqual(bdt(0)) // 2900 ≥ 2500 free threshold
+    expect(order.totals.shippingFee).toEqual(bdt(0))
     expect(order.totals.total).toEqual(bdt(2900))
     expect(result.orderNumber).toMatch(/^CC-261004-/)
     expect(result.payment.kind).toBe('instructions')
   })
 
-  it('charges delivery below the free threshold', async () => {
+  it('places a multi-item order and charges delivery below the threshold', async () => {
     const {placeOrder, saved} = harness()
-    await placeOrder({...baseInput, items: [{...baseInput.items[0], quantity: 1}]})
-    expect(saved[0].order.totals.shippingFee).toEqual(bdt(70))
-    expect(saved[0].order.totals.total).toEqual(bdt(1520))
+    await placeOrder({
+      ...baseInput,
+      items: [
+        {productSlug: 'argentina-home', variantId: 'v-m', quantity: 1, print: null},
+        {productSlug: 'plain-tee', variantId: null, quantity: 1, print: null},
+      ],
+      shippingAddress: {...baseInput.shippingAddress, zone: 'outsideDhaka'},
+    })
+    const {order} = saved[0]
+    expect(order.lines).toHaveLength(2)
+    expect(order.totals.subtotal).toEqual(bdt(2100))
+    expect(order.totals.shippingFee).toEqual(bdt(130))
+    expect(order.totals.total).toEqual(bdt(2230))
   })
 
   it('uses the variant price when one is set', async () => {
-    const {placeOrder} = harness({
-      products: [{...jersey, variants: [{...jersey.variants[1], stock: 2}]}],
-    })
-    const {saved} = harness()
-    void saved
+    const {placeOrder} = harness()
     await expect(
-      placeOrder({...baseInput, items: [{...baseInput.items[0], variantId: 'v-xl', quantity: 1}]}),
-    ).resolves.toMatchObject({total: bdt(1620)}) // 1550 + 70 delivery
+      placeOrder({...baseInput, items: [{productSlug: 'argentina-home', variantId: 'v-xl', quantity: 1, print: null}]}),
+    ).resolves.toMatchObject({total: bdt(1620)})
   })
 
-  it('rejects a sold-out variant with a field-level problem', async () => {
+  it('refuses the whole order when any line is sold out', async () => {
     const {placeOrder, saved} = harness()
-    const attempt = placeOrder({...baseInput, items: [{...baseInput.items[0], variantId: 'v-xl'}]})
+    const attempt = placeOrder({
+      ...baseInput,
+      items: [
+        {productSlug: 'plain-tee', variantId: null, quantity: 1, print: null},
+        {productSlug: 'argentina-home', variantId: 'v-s', quantity: 1, print: null},
+      ],
+    })
     await expect(attempt).rejects.toBeInstanceOf(OrderValidationError)
     await attempt.catch((error: OrderValidationError) => {
-      expect(error.problems[0]).toMatchObject({field: 'items.0'})
+      expect(error.problems).toHaveLength(1)
+      expect(error.problems[0].field).toMatch(/^items\./)
       expect(error.problems[0].message).toMatch(/sold out/i)
     })
     expect(saved).toHaveLength(0)
   })
 
-  it('rejects more units than are in stock', async () => {
+  it('rejects more units than are in stock and a missing size', async () => {
     const {placeOrder} = harness()
     await expect(
       placeOrder({...baseInput, items: [{...baseInput.items[0], quantity: 6}]}),
     ).rejects.toThrow(/Only 5/)
-  })
-
-  it('requires a size when the product has variants', async () => {
-    const {placeOrder} = harness()
     await expect(
       placeOrder({...baseInput, items: [{...baseInput.items[0], variantId: null}]}),
     ).rejects.toThrow(/Choose a size/)
@@ -202,7 +224,7 @@ describe('placeOrder', () => {
     const {placeOrder, saved} = harness()
     await placeOrder({
       ...baseInput,
-      items: [{...baseInput.items[0], quantity: 1, customisation: {name: 'messi', number: '10'}}],
+      items: [{productSlug: 'argentina-home', variantId: 'v-m', quantity: 1, print: {name: 'MESSI', number: '10'}}],
     })
     const line = saved[0].order.lines[0]
     expect(line.customisation).toEqual({name: 'MESSI', number: '10', fee: bdt(150)})
@@ -211,17 +233,24 @@ describe('placeOrder', () => {
     await expect(
       placeOrder({
         ...baseInput,
-        items: [{productSlug: 'plain-tee', variantId: null, quantity: 1, customisation: {name: 'X', number: '1'}}],
+        items: [{productSlug: 'plain-tee', variantId: null, quantity: 1, print: {name: 'X', number: '1'}}],
       }),
     ).rejects.toThrow(/cannot be printed/)
   })
 
   it('rejects a payment method the store has not enabled', async () => {
     const {placeOrder} = harness()
-    await expect(placeOrder({...baseInput, paymentMethod: 'card'})).rejects.toThrow(/not available/)
+    await expect(placeOrder({...baseInput, paymentMethod: 'bkash'})).rejects.toThrow(/not available/)
   })
 
-  it('reuses an existing customer matched by phone', async () => {
+  it('attaches to the signed-in customer without a phone lookup', async () => {
+    const {placeOrder, saved, createdCustomers} = harness()
+    await placeOrder({...baseInput, customerId: 'cust-signed-in'})
+    expect(saved[0].customerId).toBe('cust-signed-in')
+    expect(createdCustomers).toHaveLength(0)
+  })
+
+  it('reuses an existing guest customer matched by phone', async () => {
     const existing = {id: 'cust-existing', name: 'Mahdi', phone: '+8801700000000', email: null}
     const {placeOrder, saved, createdCustomers} = harness({existingCustomer: existing})
     await placeOrder(baseInput)
@@ -229,11 +258,9 @@ describe('placeOrder', () => {
     expect(createdCustomers).toHaveLength(0)
   })
 
-  it('marks cash on delivery unpaid and wallet payments pending', async () => {
+  it('records cash on delivery as unpaid', async () => {
     const {placeOrder, saved} = harness()
     await placeOrder(baseInput)
-    await placeOrder({...baseInput, paymentMethod: 'bkash', paymentReference: 'TX123'})
-    expect(saved[0].order.payment.status).toBe('unpaid')
-    expect(saved[1].order.payment).toMatchObject({status: 'pending', reference: 'TX123'})
+    expect(saved[0].order.payment).toMatchObject({method: 'cod', status: 'unpaid'})
   })
 })

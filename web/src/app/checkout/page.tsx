@@ -1,67 +1,33 @@
 import type {Metadata} from 'next'
 import Image from 'next/image'
 import Link from 'next/link'
-import {notFound, redirect} from 'next/navigation'
+import {redirect} from 'next/navigation'
 
-import {services as registry, useCases} from '@/composition/container'
-import {ProductNotFoundError} from '@/core/domain/errors'
+import {services, useCases} from '@/composition/container'
 import {placeOrderAction} from '@/presentation/actions/place-order'
 import {CheckoutForm} from '@/presentation/components/checkout-form'
-import {toCheckoutViewModel} from '@/presentation/view-models/checkout'
+import {toCartViewModel, toCheckoutViewModel} from '@/presentation/view-models/cart'
 
 export const metadata: Metadata = {title: 'Checkout', robots: {index: false}}
 
-function first(value: string | string[] | undefined): string | null {
-  if (Array.isArray(value)) return value[0] ?? null
-  return value ?? null
-}
-
 /**
- * Single-item checkout: the product page hands over a slug, a variant and a
- * quantity. Prices shown here are indicative; the use case re-prices on submit.
+ * Checks out the whole bag. Prices shown are the same quote the cart page
+ * used; the use case re-prices on submit and refuses anything that changed.
  */
-export default async function CheckoutPage({searchParams}: PageProps<'/checkout'>) {
-  const params = await searchParams
-  const slug = first(params.product)
-  const variantId = first(params.variant)
-  const quantity = Math.min(20, Math.max(1, Number.parseInt(first(params.qty) ?? '1', 10) || 1))
+export default async function CheckoutPage() {
+  const [cartView, account] = await Promise.all([useCases.viewCart(), useCases.getCurrentCustomer()])
+  const cart = toCartViewModel(cartView, {images: services.imageUrls, locale: services.storefront.locale})
+  if (cart.lines.length === 0 && cart.unavailable.length === 0) redirect('/cart')
 
-  if (!slug) redirect('/')
-
-  let product
-  try {
-    product = await useCases.getProductDetail(slug)
-  } catch (error) {
-    if (error instanceof ProductNotFoundError) notFound()
-    throw error
-  }
-
-  const variant = variantId ? (product.variants.find((candidate) => candidate.id === variantId) ?? null) : null
-  if (product.variants.length > 0 && !variant) {
-    redirect(`/products/${product.slug}`)
-  }
-
-  const settings = await useCases.getSiteSettings()
-  const view = toCheckoutViewModel(product, variant, quantity, settings, {
-    images: registry.imageUrls,
-    locale: registry.storefront.locale,
-  })
+  const view = toCheckoutViewModel(cart, account)
 
   return (
     <div className="mx-auto w-full max-w-6xl px-6 pb-20 pt-8 sm:pt-10">
       <nav aria-label="Breadcrumb" className="mb-8 text-sm">
         <ol className="flex items-center gap-2 text-ink-muted">
           <li>
-            <Link href="/" className="hover:text-ink">
-              Shop
-            </Link>
-          </li>
-          <li aria-hidden="true" className="text-ink-faint">
-            /
-          </li>
-          <li>
-            <Link href={`/products/${product.slug}`} className="hover:text-ink">
-              {product.name}
+            <Link href="/cart" className="hover:text-ink">
+              Bag
             </Link>
           </li>
           <li aria-hidden="true" className="text-ink-faint">
@@ -76,27 +42,42 @@ export default async function CheckoutPage({searchParams}: PageProps<'/checkout'
       <div className="grid gap-10 lg:grid-cols-[1fr_380px] lg:gap-14">
         <div>
           <h1 className="mb-8 text-3xl font-semibold tracking-tight text-ink">Checkout</h1>
-          <CheckoutForm view={view} action={placeOrderAction} />
+          {view.problems.length > 0 ? (
+            <div className="rounded-card border border-sale/30 bg-sale-soft p-5">
+              <p className="font-medium text-sale">A few things in your bag need attention first.</p>
+              <ul className="mt-2 list-disc pl-5 text-sm text-sale">
+                {view.problems.map((problem) => (
+                  <li key={problem}>{problem}</li>
+                ))}
+              </ul>
+              <Link href="/cart" className="mt-4 inline-flex h-10 items-center rounded-control bg-accent px-4 text-sm font-semibold text-on-accent hover:bg-accent-strong">
+                Back to your bag
+              </Link>
+            </div>
+          ) : (
+            <CheckoutForm view={view} action={placeOrderAction} />
+          )}
         </div>
 
         <aside className="lg:sticky lg:top-28 lg:self-start">
           <div className="rounded-card border border-line bg-surface p-5">
             <h2 className="mb-4 text-sm font-semibold uppercase tracking-[0.1em] text-ink-faint">Your order</h2>
-            <div className="flex gap-4">
-              <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-control bg-surface-sunken">
-                {view.item.image && (
-                  <Image src={view.item.image.src} alt={view.item.image.alt} fill sizes="80px" className="object-cover" />
-                )}
-              </div>
-              <div className="flex flex-1 flex-col gap-0.5">
-                <p className="font-medium text-ink">{view.item.productName}</p>
-                {view.item.variantLabel && <p className="text-sm text-ink-muted">{view.item.variantLabel}</p>}
-                <p className="text-sm text-ink-muted">
-                  {view.item.quantity} × {view.item.unitPriceLabel}
-                </p>
-              </div>
-              <p className="font-medium tabular-nums text-ink">{view.item.lineTotalLabel}</p>
-            </div>
+            <ul className="flex flex-col divide-y divide-line">
+              {view.lines.map((line) => (
+                <li key={line.key} className="flex gap-4 py-3 first:pt-0 last:pb-0">
+                  <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-control bg-surface-sunken">
+                    {line.image && <Image src={line.image.src} alt={line.image.alt} fill sizes="64px" className="object-cover" />}
+                  </div>
+                  <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <p className="truncate font-medium text-ink">{line.name}</p>
+                    {line.variantLabel && <p className="text-sm text-ink-muted">{line.variantLabel}</p>}
+                    {line.printLabel && <p className="text-sm text-ink-muted">{line.printLabel}</p>}
+                    <p className="text-sm text-ink-muted">Qty {line.quantity}</p>
+                  </div>
+                  <p className="font-medium tabular-nums text-ink">{line.lineTotalLabel}</p>
+                </li>
+              ))}
+            </ul>
             <dl className="mt-5 flex flex-col gap-2 border-t border-line pt-4 text-sm">
               <div className="flex justify-between">
                 <dt className="text-ink-muted">Subtotal</dt>
@@ -104,14 +85,12 @@ export default async function CheckoutPage({searchParams}: PageProps<'/checkout'
               </div>
               <div className="flex justify-between">
                 <dt className="text-ink-muted">Delivery</dt>
-                <dd className="text-ink-muted">Chosen below</dd>
+                <dd className="text-ink-muted">By zone, chosen in the form</dd>
               </div>
-              {view.shipping.freeFromLabel && (
-                <p className="rounded-control bg-success-soft px-3 py-2 text-xs text-success">
-                  Free delivery inside Dhaka on orders over {view.shipping.freeFromLabel}.
-                </p>
-              )}
             </dl>
+            <Link href="/cart" className="mt-4 inline-block text-sm text-ink-muted underline-offset-4 hover:text-ink hover:underline">
+              Edit bag
+            </Link>
           </div>
         </aside>
       </div>

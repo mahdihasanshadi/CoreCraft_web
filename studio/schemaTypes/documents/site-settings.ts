@@ -142,21 +142,9 @@ export const siteSettings = defineType({
       group: 'commerce',
       of: [defineArrayMember({type: 'string'})],
       options: {list: [...paymentMethods]},
-      initialValue: ['cod', 'bkash'],
+      description: 'The store offers cash on delivery only. Other methods need a gateway integration first.',
+      initialValue: ['cod'],
       validation: (rule) => rule.required().min(1).unique(),
-    }),
-    defineField({
-      name: 'paymentInstructions',
-      title: 'Payment instructions',
-      type: 'object',
-      group: 'commerce',
-      description: 'Shown to the shopper after choosing a mobile wallet or bank transfer.',
-      options: {collapsible: true, collapsed: true},
-      fields: [
-        defineField({name: 'bkashNumber', title: 'bKash merchant number', type: 'string'}),
-        defineField({name: 'nagadNumber', title: 'Nagad merchant number', type: 'string'}),
-        defineField({name: 'bankDetails', title: 'Bank account details', type: 'text', rows: 4}),
-      ],
     }),
     defineField({
       name: 'jerseyCustomisationFee',

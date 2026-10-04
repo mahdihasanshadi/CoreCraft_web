@@ -1,28 +1,45 @@
 'use client'
 
 import Link from 'next/link'
-import {useId, useMemo, useState} from 'react'
+import {useActionState, useEffect, useId, useMemo, useState} from 'react'
 
-import type {ActionState} from '../actions/action-state'
+import {idleState, type ActionState} from '../actions/action-state'
 import type {VariantViewModel} from '../view-models/product-detail'
+import {FormNotice, TextField} from './form-fields'
 import {NotifyMeForm} from './notify-me-form'
 
-type Action = (previous: ActionState, formData: FormData) => Promise<ActionState>
+type StatefulAction = (previous: ActionState, formData: FormData) => Promise<ActionState>
+type PlainAction = (formData: FormData) => Promise<void>
 
 export interface PurchasePanelProps {
   readonly productSlug: string
   readonly variants: readonly VariantViewModel[]
   readonly productInStock: boolean
-  readonly notifyAction: Action
+  readonly customisable: boolean
+  readonly customisationFeeLabel: string
+  readonly notifyAction: StatefulAction
+  readonly addToBagAction: StatefulAction
+  readonly buyNowAction: PlainAction
 }
 
 /**
  * Colour first, then size, the way shoppers think about a garment. Then the
- * one action that fits the selection: buy it, or ask to be told when it is
- * back. Sold-out sizes stay visible and selectable on purpose.
+ * one action that fits the selection: add to bag, buy now, or ask to be told
+ * when it is back. Sold-out sizes stay visible and selectable on purpose.
  */
-export function PurchasePanel({productSlug, variants, productInStock, notifyAction}: PurchasePanelProps) {
+export function PurchasePanel({
+  productSlug,
+  variants,
+  productInStock,
+  customisable,
+  customisationFeeLabel,
+  notifyAction,
+  addToBagAction,
+  buyNowAction,
+}: PurchasePanelProps) {
   const labelId = useId()
+  const fieldId = useId()
+  const [bagState, bagAction, bagPending] = useActionState(addToBagAction, idleState)
 
   const colours = useMemo(() => {
     const seen = new Map<string, {name: string; hex: string | null; anyInStock: boolean}>()
@@ -42,6 +59,11 @@ export function PurchasePanel({productSlug, variants, productInStock, notifyActi
   const [colourKey, setColourKey] = useState<string>(firstAvailable?.colour ?? '')
   const [variantId, setVariantId] = useState<string | undefined>(firstAvailable?.id)
   const [quantity, setQuantity] = useState(1)
+  const [wantsPrint, setWantsPrint] = useState(false)
+
+  useEffect(() => {
+    if (bagState.status === 'success') window.dispatchEvent(new CustomEvent('cart:changed'))
+  }, [bagState])
 
   const sizesForColour = variants.filter((variant) => (variant.colour ?? '') === colourKey)
   const selected =
@@ -62,10 +84,6 @@ export function PurchasePanel({productSlug, variants, productInStock, notifyActi
     setVariantId(next?.id)
     setQuantity(1)
   }
-
-  const checkoutHref = `/checkout?product=${encodeURIComponent(productSlug)}${
-    selected ? `&variant=${encodeURIComponent(selected.id)}` : ''
-  }&qty=${quantity}`
 
   return (
     <div className="flex flex-col gap-5">
@@ -159,35 +177,101 @@ export function PurchasePanel({productSlug, variants, productInStock, notifyActi
       )}
 
       {canBuy ? (
-        <div className="flex flex-col gap-3 border-t border-line pt-5 sm:flex-row sm:items-center">
-          <div className="inline-flex h-11 items-center rounded-control border border-line bg-surface">
+        <form action={bagAction} className="flex flex-col gap-4 border-t border-line pt-5">
+          <input type="hidden" name="productSlug" value={productSlug} />
+          {selected && <input type="hidden" name="variantId" value={selected.id} />}
+          <input type="hidden" name="quantity" value={quantity} />
+
+          {customisable && (
+            <div className="flex flex-col gap-3 rounded-control bg-surface-muted/60 p-3.5">
+              <label className="flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={wantsPrint}
+                  onChange={(event) => setWantsPrint(event.target.checked)}
+                  className="mt-0.5 accent-[var(--color-accent)]"
+                />
+                <span className="flex flex-col">
+                  <span className="text-sm font-medium text-ink">Add a printed name and number</span>
+                  <span className="text-xs text-ink-muted">{customisationFeeLabel} per jersey, official font.</span>
+                </span>
+              </label>
+              {wantsPrint && (
+                <div className="grid gap-3 sm:grid-cols-[2fr_1fr]">
+                  <TextField
+                    id={`${fieldId}-print-name`}
+                    name="printName"
+                    label="Name on back"
+                    maxLength={14}
+                    placeholder="MESSI"
+                    style={{textTransform: 'uppercase'}}
+                    error={bagState.fieldErrors.printName}
+                    optional
+                  />
+                  <TextField
+                    id={`${fieldId}-print-number`}
+                    name="printNumber"
+                    label="Number"
+                    inputMode="numeric"
+                    maxLength={2}
+                    placeholder="10"
+                    error={bagState.fieldErrors.printNumber}
+                    optional
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="inline-flex h-11 items-center rounded-control border border-line bg-surface">
+              <button
+                type="button"
+                aria-label="Decrease quantity"
+                onClick={() => setQuantity((value) => Math.max(1, value - 1))}
+                className="h-full w-10 text-ink-muted hover:text-ink"
+              >
+                −
+              </button>
+              <span className="w-8 text-center text-sm font-medium tabular-nums" aria-live="polite">
+                {quantity}
+              </span>
+              <button
+                type="button"
+                aria-label="Increase quantity"
+                onClick={() => setQuantity((value) => Math.min(maxQuantity, value + 1))}
+                className="h-full w-10 text-ink-muted hover:text-ink"
+              >
+                +
+              </button>
+            </div>
             <button
-              type="button"
-              aria-label="Decrease quantity"
-              onClick={() => setQuantity((value) => Math.max(1, value - 1))}
-              className="h-full w-10 text-ink-muted hover:text-ink"
+              type="submit"
+              disabled={bagPending}
+              className="inline-flex h-11 flex-1 items-center justify-center rounded-control border border-ink bg-transparent px-5 text-sm font-semibold text-ink transition-colors hover:bg-ink hover:text-canvas disabled:opacity-60"
             >
-              −
+              {bagPending ? 'Adding…' : 'Add to bag'}
             </button>
-            <span className="w-8 text-center text-sm font-medium tabular-nums" aria-live="polite">
-              {quantity}
-            </span>
             <button
-              type="button"
-              aria-label="Increase quantity"
-              onClick={() => setQuantity((value) => Math.min(maxQuantity, value + 1))}
-              className="h-full w-10 text-ink-muted hover:text-ink"
+              type="submit"
+              formAction={buyNowAction}
+              className="inline-flex h-11 flex-1 items-center justify-center rounded-control bg-accent px-5 text-sm font-semibold text-on-accent transition-colors hover:bg-accent-strong"
             >
-              +
+              Buy now
             </button>
           </div>
-          <Link
-            href={checkoutHref}
-            className="inline-flex h-11 flex-1 items-center justify-center rounded-control bg-accent px-5 text-sm font-semibold text-on-accent transition-colors hover:bg-accent-strong"
-          >
-            Buy now
-          </Link>
-        </div>
+
+          {bagState.status === 'success' ? (
+            <p role="status" className="flex items-center justify-between rounded-control border border-success/30 bg-success-soft px-3.5 py-2.5 text-sm text-success">
+              <span>{bagState.message}</span>
+              <Link href="/cart" className="font-semibold underline-offset-4 hover:underline">
+                View bag
+              </Link>
+            </p>
+          ) : (
+            <FormNotice status={bagState.status} message={bagState.message} />
+          )}
+        </form>
       ) : (
         <div className="border-t border-line pt-5">
           <NotifyMeForm

@@ -8,33 +8,31 @@ import {isDomainError, OrderValidationError, WriteAccessUnavailableError} from '
 import {checkoutFormSchema, fieldErrorsFrom} from '../forms/schemas'
 import {failure, formValues, type ActionState} from './action-state'
 
+/**
+ * Places the whole bag as one order. Items come from the cart cookie, never
+ * from the form, and the use case re-prices everything before saving.
+ */
 export async function placeOrderAction(_previous: ActionState, formData: FormData): Promise<ActionState> {
   const values = formValues(formData)
   const parsed = checkoutFormSchema.safeParse(values)
   if (!parsed.success) {
     return failure('Check the highlighted fields.', values, fieldErrorsFrom(parsed.error))
   }
-  if (parsed.data.website) {
-    return failure('Something went wrong. Please try again.', values)
-  }
+  if (parsed.data.website) return failure('Something went wrong. Please try again.', values)
 
   const input = parsed.data
   let orderNumber: string
 
   try {
+    const [cartView, account] = await Promise.all([useCases.viewCart(), useCases.getCurrentCustomer()])
+    if (cartView.cart.items.length === 0) {
+      return failure('Your bag is empty.', values, {items: 'Add something to your bag first.'})
+    }
+
     const result = await useCases.placeOrder({
-      items: [
-        {
-          productSlug: input.productSlug,
-          variantId: input.variantId,
-          quantity: input.quantity,
-          customisation:
-            input.printName || input.printNumber
-              ? {name: input.printName, number: input.printNumber}
-              : null,
-        },
-      ],
+      items: cartView.cart.items,
       customer: {name: input.name, phone: input.phone, email: input.email},
+      customerId: account?.id ?? null,
       shippingAddress: {
         fullName: input.name,
         phone: input.phone,
@@ -46,20 +44,23 @@ export async function placeOrderAction(_previous: ActionState, formData: FormDat
         zone: input.zone,
         country: 'Bangladesh',
       },
-      paymentMethod: input.paymentMethod,
-      paymentSenderNumber: input.senderNumber,
-      paymentReference: input.reference,
+      paymentMethod: 'cod',
       customerNote: input.note,
     })
     orderNumber = result.orderNumber
+    await useCases.clearCart()
   } catch (error) {
     if (error instanceof OrderValidationError) {
+      const itemMessages = error.problems
+        .filter((problem) => problem.field.startsWith('items'))
+        .map((problem) => problem.message)
       const fieldErrors: Record<string, string> = {}
       for (const problem of error.problems) {
-        // Line-level problems map onto the single product this form sells.
-        const field = problem.field.startsWith('items') ? 'variantId' : problem.field
-        if (!(field in fieldErrors)) fieldErrors[field] = problem.message
+        if (!problem.field.startsWith('items') && !(problem.field in fieldErrors)) {
+          fieldErrors[problem.field] = problem.message
+        }
       }
+      if (itemMessages.length > 0) fieldErrors.items = itemMessages.join(' ')
       return failure('We could not place that order.', values, fieldErrors)
     }
     if (error instanceof WriteAccessUnavailableError) {

@@ -4,8 +4,9 @@ import {UserIcon} from '@sanity/icons/User'
 /**
  * A shopper's record, kept in the private commerce dataset.
  *
- * This is a contact and order-history record, not a login. Passwords and
- * sessions belong to an identity provider, never to a content store.
+ * Also the account: when a shopper registers on the storefront, a password
+ * hash is stored under `auth`. Staff never see the hash; the Studio hides it.
+ * Phone is the login identifier, which is why it is required and unique.
  */
 export const customer = defineType({
   name: 'customer',
@@ -15,6 +16,7 @@ export const customer = defineType({
   groups: [
     {name: 'profile', title: 'Profile', default: true},
     {name: 'addresses', title: 'Addresses'},
+    {name: 'account', title: 'Account'},
     {name: 'internal', title: 'Internal'},
   ],
   fields: [
@@ -30,11 +32,19 @@ export const customer = defineType({
       title: 'Phone',
       type: 'string',
       group: 'profile',
-      description: 'The primary way to reach a shopper in Bangladesh. Used to match repeat orders.',
+      description:
+        'Primary contact and the sign-in identifier. Stored as +880… Used to match repeat orders.',
       validation: (rule) =>
-        rule.required().custom((value) => {
+        rule.required().custom(async (value, context) => {
           if (!value) return true
-          return /^\+?[0-9\s-]{10,16}$/.test(value) || 'Enter a valid phone number.'
+          if (!/^\+?[0-9\s-]{10,16}$/.test(value)) return 'Enter a valid phone number.'
+          const client = context.getClient({apiVersion: '2026-10-04'})
+          const id = context.document?._id?.replace(/^drafts\./, '') ?? ''
+          const duplicates = await client.fetch<number>(
+            `count(*[_type == "customer" && phone == $phone && !(_id in [$id, "drafts." + $id])])`,
+            {phone: value, id},
+          )
+          return duplicates === 0 || 'Another customer already has this phone number.'
         }),
     }),
     defineField({
@@ -67,6 +77,25 @@ export const customer = defineType({
       of: [defineArrayMember({type: 'address'})],
     }),
     defineField({
+      name: 'auth',
+      title: 'Account',
+      type: 'object',
+      group: 'account',
+      description: 'Managed by the storefront. A customer without these fields has never registered.',
+      readOnly: true,
+      fields: [
+        defineField({
+          name: 'passwordHash',
+          title: 'Password hash',
+          type: 'string',
+          hidden: true,
+        }),
+        defineField({name: 'accountCreatedAt', title: 'Account created', type: 'datetime'}),
+        defineField({name: 'passwordUpdatedAt', title: 'Password last changed', type: 'datetime'}),
+        defineField({name: 'lastLoginAt', title: 'Last signed in', type: 'datetime'}),
+      ],
+    }),
+    defineField({
       name: 'tags',
       title: 'Tags',
       type: 'array',
@@ -91,7 +120,7 @@ export const customer = defineType({
       readOnly: true,
       options: {
         list: [
-          {title: 'Storefront checkout', value: 'storefront'},
+          {title: 'Storefront', value: 'storefront'},
           {title: 'Added by staff', value: 'manual'},
         ],
       },
@@ -99,9 +128,12 @@ export const customer = defineType({
     }),
   ],
   preview: {
-    select: {title: 'name', phone: 'phone', email: 'email'},
-    prepare({title, phone, email}) {
-      return {title, subtitle: [phone, email].filter(Boolean).join(' · ')}
+    select: {title: 'name', phone: 'phone', email: 'email', hasAccount: 'auth.accountCreatedAt'},
+    prepare({title, phone, email, hasAccount}) {
+      return {
+        title,
+        subtitle: [phone, email, hasAccount ? 'Has account' : null].filter(Boolean).join(' · '),
+      }
     },
   },
 })

@@ -1,4 +1,4 @@
-import {defineConfig, type DocumentActionComponent, type Template} from 'sanity'
+import {defineConfig, type DocumentActionComponent, type Template, type Tool} from 'sanity'
 import {presentationTool} from 'sanity/presentation'
 import {structureTool} from 'sanity/structure'
 import {visionTool} from '@sanity/vision'
@@ -20,6 +20,12 @@ const SINGLETONS = ['siteSettings']
 const STOREFRONT_ONLY = ['productInterest']
 
 const LOCKED_SINGLETON_ACTIONS = new Set(['delete', 'duplicate', 'unpublish'])
+
+/** Vision is a GROQ console for developers; editors never need it. */
+function adminOnlyVision(tools: Tool[], {currentUser}: {currentUser: {roles: {name: string}[]} | null}) {
+  const isAdmin = currentUser?.roles.some((role) => role.name === 'administrator') ?? false
+  return isAdmin ? tools : tools.filter((tool) => tool.name !== 'vision')
+}
 
 function hideFromCreateMenu(templates: Template[], hidden: string[]) {
   return templates.filter((template) => !hidden.includes(template.schemaType))
@@ -55,6 +61,7 @@ export default defineConfig([
       }),
       visionTool({defaultApiVersion: '2026-10-04'}),
     ],
+    tools: adminOnlyVision,
     schema: {
       types: contentTypes,
       templates: (templates) => [...hideFromCreateMenu(templates, SINGLETONS), ...productTemplates],
@@ -77,6 +84,7 @@ export default defineConfig([
     projectId,
     dataset: 'commerce',
     plugins: [structureTool({structure: commerceStructure}), visionTool({defaultApiVersion: '2026-10-04'})],
+    tools: adminOnlyVision,
     schema: {
       types: commerceTypes,
       templates: (templates) => hideFromCreateMenu(templates, STOREFRONT_ONLY),

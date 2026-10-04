@@ -31,6 +31,8 @@ export interface StorefrontConfig {
   readonly siteUrl: string
   /** Where the standalone Studio runs, for "open the Studio" links. */
   readonly studioUrl: string
+  /** True in production, where cookies must be Secure. */
+  readonly secureCookies: boolean
 }
 
 export const sanityConfig: SanityConnectionConfig = {
@@ -50,6 +52,7 @@ export const storefrontConfig: StorefrontConfig = {
   locale: process.env.NEXT_PUBLIC_LOCALE ?? 'en-IN',
   siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000',
   studioUrl: sanityConfig.studioUrl,
+  secureCookies: process.env.NODE_ENV === 'production',
 }
 
 /**
@@ -64,3 +67,9 @@ export const sanityReadToken = process.env.SANITY_API_READ_TOKEN ?? null
  * failing silently.
  */
 export const sanityWriteToken = process.env.SANITY_API_WRITE_TOKEN ?? null
+
+/**
+ * Secret that signs customer session cookies. At least 32 characters. Absent
+ * means sign-in is unavailable; guest checkout still works.
+ */
+export const authSecret = process.env.AUTH_SECRET ?? null

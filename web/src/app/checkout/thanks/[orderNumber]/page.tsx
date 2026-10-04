@@ -2,7 +2,7 @@ import type {Metadata} from 'next'
 import Link from 'next/link'
 import {notFound} from 'next/navigation'
 
-import {services as registry, useCases} from '@/composition/container'
+import {services, useCases} from '@/composition/container'
 import {OrderNotFoundError, WriteAccessUnavailableError} from '@/core/domain/errors'
 import {Badge} from '@/presentation/components/badge'
 import {toOrderConfirmationViewModel} from '@/presentation/view-models/checkout'
@@ -20,19 +20,12 @@ export default async function OrderConfirmationPage({params}: PageProps<'/checko
     throw error
   }
 
-  const [view, settings] = [
-    toOrderConfirmationViewModel(order, registry.storefront.locale),
-    await useCases.getSiteSettings(),
-  ]
+  const [view, settings, account] = await Promise.all([
+    toOrderConfirmationViewModel(order, services.storefront.locale),
+    useCases.getSiteSettings(),
+    useCases.getCurrentCustomer(),
+  ])
   const whatsappHref = settings.whatsapp ? `https://wa.me/${settings.whatsapp.replace(/[^0-9]/g, '')}` : null
-  const payTo =
-    order.payment.method === 'bkash'
-      ? settings.paymentInstructions.bkashNumber
-      : order.payment.method === 'nagad'
-        ? settings.paymentInstructions.nagadNumber
-        : order.payment.method === 'bankTransfer'
-          ? settings.paymentInstructions.bankDetails
-          : null
 
   return (
     <div className="mx-auto w-full max-w-3xl px-6 pb-20 pt-12 sm:pt-16">
@@ -52,15 +45,12 @@ export default async function OrderConfirmationPage({params}: PageProps<'/checko
         </p>
       </header>
 
-      {payTo && (
+      {view.isCashOnDelivery && (
         <section className="mb-8 rounded-card border border-accent/30 bg-accent-soft/50 p-5">
-          <h2 className="text-sm font-semibold text-ink">
-            {order.payment.method === 'bankTransfer' ? 'Pay by bank transfer' : `Send ${view.totalLabel} with ${view.paymentMethodLabel}`}
-          </h2>
-          <p className="mt-2 whitespace-pre-line font-mono text-sm text-ink">{payTo}</p>
-          <p className="mt-2 text-xs text-ink-muted">
-            Use {view.orderNumber} as the reference, then share the transaction ID with us
-            {whatsappHref ? ' on WhatsApp' : ''}.
+          <h2 className="text-sm font-semibold text-ink">Pay when it arrives</h2>
+          <p className="mt-1 text-sm text-ink-muted">
+            Have <span className="font-semibold text-ink">{view.totalLabel}</span> ready in cash for the courier.
+            {settings.contactPhone ? ` We will call from ${settings.contactPhone} first.` : ''}
           </p>
         </section>
       )}
@@ -128,6 +118,15 @@ export default async function OrderConfirmationPage({params}: PageProps<'/checko
         <Link href="/" className="inline-flex h-11 items-center rounded-control bg-accent px-5 text-sm font-semibold text-on-accent hover:bg-accent-strong">
           Keep shopping
         </Link>
+        {account ? (
+          <Link href="/account" className="inline-flex h-11 items-center rounded-control border border-line px-5 text-sm font-medium text-ink hover:border-line-strong">
+            View your orders
+          </Link>
+        ) : services.accountsEnabled ? (
+          <Link href={`/account/register?next=${encodeURIComponent('/account')}`} className="inline-flex h-11 items-center rounded-control border border-line px-5 text-sm font-medium text-ink hover:border-line-strong">
+            Create an account to track orders
+          </Link>
+        ) : null}
         {whatsappHref && (
           <a href={whatsappHref} target="_blank" rel="noopener noreferrer" className="inline-flex h-11 items-center rounded-control border border-line px-5 text-sm font-medium text-ink hover:border-line-strong">
             Message us on WhatsApp

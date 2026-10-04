@@ -5,6 +5,7 @@ import {notFound} from 'next/navigation'
 
 import {services, useCases} from '@/composition/container'
 import {ProductNotFoundError} from '@/core/domain/errors'
+import {addToBagAction, buyNowAction} from '@/presentation/actions/cart'
 import {recordInterestAction} from '@/presentation/actions/record-interest'
 import {Badge} from '@/presentation/components/badge'
 import {Price} from '@/presentation/components/price'
@@ -50,9 +51,11 @@ export default async function ProductPage({params}: PageProps<'/products/[slug]'
     throw error
   }
 
+  const settings = await useCases.getSiteSettings()
   const view = toProductDetailViewModel(product, {
     images: services.imageUrls,
     locale: services.storefront.locale,
+    customisationFee: settings.jerseyCustomisationFee,
   })
 
   return (
@@ -111,7 +114,11 @@ export default async function ProductPage({params}: PageProps<'/products/[slug]'
               productSlug={product.slug}
               variants={view.variants}
               productInStock={view.inStock}
+              customisable={view.customisable}
+              customisationFeeLabel={view.customisationFeeLabel}
               notifyAction={recordInterestAction}
+              addToBagAction={addToBagAction}
+              buyNowAction={buyNowAction}
             />
           </div>
 

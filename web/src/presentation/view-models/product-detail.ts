@@ -1,3 +1,4 @@
+import type {Money} from '@/core/domain/money'
 import type {Audience, Fit, KitType, Product} from '@/core/domain/product'
 import {
   availableUnits,
@@ -56,6 +57,7 @@ export interface ProductDetailViewModel {
   readonly sizeChart: {readonly src: string; readonly alt: string} | null
   readonly jerseyBadge: string | null
   readonly customisable: boolean
+  readonly customisationFeeLabel: string
   readonly categories: readonly {readonly id: string; readonly title: string}[]
 }
 
@@ -111,7 +113,7 @@ function specsFor(product: Product): SpecViewModel[] {
 
 export function toProductDetailViewModel(
   product: Product,
-  {images, locale}: ViewModelContext,
+  {images, locale, customisationFee}: ViewModelContext & {customisationFee: Money},
 ): ProductDetailViewModel {
   const discount = discountPercentage(product)
   const priceIsFrom = hasPriceRange(product)
@@ -164,6 +166,7 @@ export function toProductDetailViewModel(
           .join(' · ') || null
       : null,
     customisable: product.jersey?.customisable ?? false,
+    customisationFeeLabel: formatMoney(customisationFee, locale),
     categories: product.categories.map(({id, title}) => ({id, title})),
   }
 }

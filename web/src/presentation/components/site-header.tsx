@@ -1,8 +1,11 @@
 import Link from 'next/link'
 
+import {CartButton} from './cart-button'
+
 export interface SiteHeaderProps {
   readonly storeName: string
   readonly announcement: {readonly text: string; readonly href: string | null} | null
+  readonly accountsEnabled: boolean
 }
 
 const navigation = [
@@ -10,7 +13,7 @@ const navigation = [
   {href: '/services', label: 'Custom kits'},
 ] as const
 
-export function SiteHeader({storeName, announcement}: SiteHeaderProps) {
+export function SiteHeader({storeName, announcement, accountsEnabled}: SiteHeaderProps) {
   return (
     <header className="sticky top-0 z-40">
       {announcement && (
@@ -28,7 +31,7 @@ export function SiteHeader({storeName, announcement}: SiteHeaderProps) {
       )}
 
       <div className="border-b border-line bg-canvas/80 backdrop-blur-md supports-[backdrop-filter]:bg-canvas/70">
-        <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-6">
+        <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-6">
           <Link
             href="/"
             className="group flex items-center gap-2.5 rounded-control text-ink"
@@ -45,7 +48,7 @@ export function SiteHeader({storeName, announcement}: SiteHeaderProps) {
             <span className="text-[15px] font-semibold tracking-tight">{storeName}</span>
           </Link>
 
-          <nav aria-label="Primary">
+          <nav aria-label="Primary" className="flex items-center gap-1">
             <ul className="flex items-center gap-1">
               {navigation.map((item) => (
                 <li key={item.href}>
@@ -57,7 +60,18 @@ export function SiteHeader({storeName, announcement}: SiteHeaderProps) {
                   </Link>
                 </li>
               ))}
+              {accountsEnabled && (
+                <li>
+                  <Link
+                    href="/account"
+                    className="rounded-control px-3 py-2 text-sm font-medium text-ink-muted transition-colors hover:bg-surface-muted hover:text-ink"
+                  >
+                    Account
+                  </Link>
+                </li>
+              )}
             </ul>
+            <CartButton />
           </nav>
         </div>
       </div>

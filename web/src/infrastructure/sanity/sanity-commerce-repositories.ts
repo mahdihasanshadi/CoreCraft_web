@@ -13,8 +13,10 @@ import {
 import type {NewProductInterest, NewServiceRequest} from '@/core/domain/service'
 import {isPaymentMethod, isShippingZone} from '@/core/domain/site-settings'
 import type {
+  CustomerCredentials,
   CustomerRecord,
   CustomerRepository,
+  NewCustomerAccount,
   OrderRepository,
   ProductInterestRepository,
   ServiceRequestRepository,
@@ -30,15 +32,38 @@ export function normalisePhone(phone: string): string {
   return `+${digits}`
 }
 
+const CUSTOMER_FIELDS = `"id": _id, name, phone, email`
+
 export function createSanityCustomerRepository(): CustomerRepository {
+  async function findById(id: string): Promise<CustomerRecord | null> {
+    const row = await commerceClient().fetch<CustomerRecord | null>(
+      `*[_type == "customer" && _id == $id][0]{${CUSTOMER_FIELDS}}`,
+      {id},
+    )
+    return row ?? null
+  }
+
   return {
+    findById,
+
     async findByPhone(phone): Promise<CustomerRecord | null> {
-      const normalised = normalisePhone(phone)
       const row = await commerceClient().fetch<CustomerRecord | null>(
-        `*[_type == "customer" && phone == $phone][0]{"id": _id, name, phone, email}`,
-        {phone: normalised},
+        `*[_type == "customer" && phone == $phone][0]{${CUSTOMER_FIELDS}}`,
+        {phone: normalisePhone(phone)},
       )
       return row ?? null
+    },
+
+    async findCredentialsByPhone(phone): Promise<CustomerCredentials | null> {
+      const row = await commerceClient().fetch<
+        (CustomerRecord & {passwordHash?: string | null}) | null
+      >(
+        `*[_type == "customer" && phone == $phone][0]{${CUSTOMER_FIELDS}, "passwordHash": auth.passwordHash}`,
+        {phone: normalisePhone(phone)},
+      )
+      if (!row) return null
+      const {passwordHash, ...account} = row
+      return {account, passwordHash: passwordHash ?? null}
     },
 
     async create(customer: OrderCustomer, source): Promise<CustomerRecord> {
@@ -51,6 +76,55 @@ export function createSanityCustomerRepository(): CustomerRepository {
         source,
       })
       return {id: created._id, name: customer.name, phone: created.phone as string, email: customer.email}
+    },
+
+    async register(account: NewCustomerAccount): Promise<CustomerRecord> {
+      const phone = normalisePhone(account.phone)
+      const now = new Date().toISOString()
+      const existing = await commerceClient().fetch<{_id: string} | null>(
+        `*[_type == "customer" && phone == $phone][0]{_id}`,
+        {phone},
+      )
+
+      if (existing) {
+        // A guest who ordered before now claims their record and its history.
+        await commerceClient()
+          .patch(existing._id)
+          .set({
+            name: account.name,
+            email: account.email ?? undefined,
+            auth: {passwordHash: account.passwordHash, passwordUpdatedAt: now, accountCreatedAt: now},
+          })
+          .commit()
+        return {id: existing._id, name: account.name, phone, email: account.email}
+      }
+
+      const created = await commerceClient().create({
+        _type: 'customer',
+        name: account.name,
+        phone,
+        email: account.email ?? undefined,
+        marketingConsent: 'unknown',
+        source: 'storefront',
+        auth: {passwordHash: account.passwordHash, passwordUpdatedAt: now, accountCreatedAt: now},
+      })
+      return {id: created._id, name: account.name, phone, email: account.email}
+    },
+
+    async recordLogin(id, at): Promise<void> {
+      await commerceClient().patch(id).set({'auth.lastLoginAt': at.toISOString()}).commit()
+    },
+
+    async updateProfile(id, changes): Promise<CustomerRecord> {
+      const patch = commerceClient().patch(id)
+      const set: Record<string, unknown> = {}
+      if (changes.name !== undefined) set.name = changes.name
+      if (changes.email !== undefined) set.email = changes.email ?? undefined
+      if (changes.email === null) patch.unset(['email'])
+      await patch.set(set).commit()
+      const record = await findById(id)
+      if (!record) throw new Error(`Customer ${id} vanished during update`)
+      return record
     },
   }
 }
@@ -130,6 +204,69 @@ interface RawOrder {
   } | null
 }
 
+const ORDER_PROJECTION = `..., "customer": customer->{name}`
+
+function toPlacedOrder(raw: RawOrder, currency: CurrencyCode): PlacedOrder {
+  const money = (amount: number | null | undefined) => createMoney(amount ?? 0, raw.currency ?? currency)
+  const status = (orderStatuses as readonly string[]).includes(raw.status) ? raw.status : 'pending'
+  const paymentStatus = (paymentStatuses as readonly string[]).includes(raw.payment?.status ?? '')
+    ? raw.payment?.status
+    : 'unpaid'
+  const zone = raw.shippingAddress?.zone
+  const method = raw.payment?.method
+
+  return {
+    id: raw._id,
+    orderNumber: raw.orderNumber,
+    placedAt: new Date(raw.placedAt),
+    status: status as PlacedOrder['status'],
+    customerName: raw.customer?.name ?? raw.shippingAddress?.fullName ?? 'Customer',
+    lines: (raw.items ?? []).map((item) => ({
+      productId: item.productId ?? '',
+      productSlug: item.productSlug ?? '',
+      productName: item.productName ?? 'Item',
+      variantId: item.variantId ?? null,
+      variantTitle: item.variantTitle ?? null,
+      size: item.size ?? null,
+      colour: item.colour ?? null,
+      sku: item.sku ?? null,
+      unitPrice: money(item.unitPrice),
+      quantity: item.quantity ?? 1,
+      customisation: item.customisation
+        ? {
+            name: item.customisation.name ?? null,
+            number: item.customisation.number ?? null,
+            fee: money(item.customisation.fee),
+          }
+        : null,
+      lineTotal: money(item.lineTotal),
+    })),
+    totals: {
+      subtotal: money(raw.subtotal),
+      shippingFee: money(raw.shippingFee),
+      discount: money(raw.discount),
+      total: money(raw.total),
+    },
+    shippingAddress: {
+      fullName: raw.shippingAddress?.fullName ?? '',
+      phone: raw.shippingAddress?.phone ?? '',
+      line1: raw.shippingAddress?.line1 ?? '',
+      line2: raw.shippingAddress?.line2 ?? null,
+      area: raw.shippingAddress?.area ?? null,
+      city: raw.shippingAddress?.city ?? '',
+      postalCode: raw.shippingAddress?.postalCode ?? null,
+      zone: isShippingZone(zone) ? zone : 'insideDhaka',
+      country: raw.shippingAddress?.country ?? 'Bangladesh',
+    },
+    payment: {
+      method: isPaymentMethod(method) ? method : 'cod',
+      status: paymentStatus as PlacedOrder['payment']['status'],
+      reference: raw.payment?.reference ?? null,
+      senderNumber: raw.payment?.senderNumber ?? null,
+    },
+  }
+}
+
 export function createSanityOrderRepository({currency}: {currency: CurrencyCode}): OrderRepository {
   return {
     async create(order: NewOrder, customerId: string): Promise<{id: string}> {
@@ -161,71 +298,18 @@ export function createSanityOrderRepository({currency}: {currency: CurrencyCode}
 
     async findByNumber(orderNumber: string): Promise<PlacedOrder | null> {
       const raw = await commerceClient().fetch<RawOrder | null>(
-        `*[_type == "order" && orderNumber == $orderNumber][0]{
-          ..., "customer": customer->{name}
-        }`,
+        `*[_type == "order" && orderNumber == $orderNumber][0]{${ORDER_PROJECTION}}`,
         {orderNumber},
       )
-      if (!raw) return null
+      return raw ? toPlacedOrder(raw, currency) : null
+    },
 
-      const money = (amount: number | null | undefined) => createMoney(amount ?? 0, raw.currency ?? currency)
-      const status = (orderStatuses as readonly string[]).includes(raw.status) ? raw.status : 'pending'
-      const paymentStatus = (paymentStatuses as readonly string[]).includes(raw.payment?.status ?? '')
-        ? raw.payment?.status
-        : 'unpaid'
-      const zone = raw.shippingAddress?.zone
-      const method = raw.payment?.method
-
-      return {
-        id: raw._id,
-        orderNumber: raw.orderNumber,
-        placedAt: new Date(raw.placedAt),
-        status: status as PlacedOrder['status'],
-        customerName: raw.customer?.name ?? raw.shippingAddress?.fullName ?? 'Customer',
-        lines: (raw.items ?? []).map((item) => ({
-          productId: item.productId ?? '',
-          productSlug: item.productSlug ?? '',
-          productName: item.productName ?? 'Item',
-          variantId: item.variantId ?? null,
-          variantTitle: item.variantTitle ?? null,
-          size: item.size ?? null,
-          colour: item.colour ?? null,
-          sku: item.sku ?? null,
-          unitPrice: money(item.unitPrice),
-          quantity: item.quantity ?? 1,
-          customisation: item.customisation
-            ? {
-                name: item.customisation.name ?? null,
-                number: item.customisation.number ?? null,
-                fee: money(item.customisation.fee),
-              }
-            : null,
-          lineTotal: money(item.lineTotal),
-        })),
-        totals: {
-          subtotal: money(raw.subtotal),
-          shippingFee: money(raw.shippingFee),
-          discount: money(raw.discount),
-          total: money(raw.total),
-        },
-        shippingAddress: {
-          fullName: raw.shippingAddress?.fullName ?? '',
-          phone: raw.shippingAddress?.phone ?? '',
-          line1: raw.shippingAddress?.line1 ?? '',
-          line2: raw.shippingAddress?.line2 ?? null,
-          area: raw.shippingAddress?.area ?? null,
-          city: raw.shippingAddress?.city ?? '',
-          postalCode: raw.shippingAddress?.postalCode ?? null,
-          zone: isShippingZone(zone) ? zone : 'insideDhaka',
-          country: raw.shippingAddress?.country ?? 'Bangladesh',
-        },
-        payment: {
-          method: isPaymentMethod(method) ? method : 'cod',
-          status: paymentStatus as PlacedOrder['payment']['status'],
-          reference: raw.payment?.reference ?? null,
-          senderNumber: raw.payment?.senderNumber ?? null,
-        },
-      }
+    async listByCustomer(customerId: string): Promise<readonly PlacedOrder[]> {
+      const rows = await commerceClient().fetch<RawOrder[]>(
+        `*[_type == "order" && customer._ref == $customerId] | order(placedAt desc)[0...50]{${ORDER_PROJECTION}}`,
+        {customerId},
+      )
+      return rows.map((raw) => toPlacedOrder(raw, currency))
     },
   }
 }

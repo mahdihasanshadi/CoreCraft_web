@@ -1,30 +1,23 @@
-import {makeGetProductDetail, type GetProductDetail} from '@/application/use-cases/get-product-detail'
-import {makeGetProductSeo, type GetProductSeo} from '@/application/use-cases/get-product-seo'
-import {makeGetSiteSettings, type GetSiteSettings} from '@/application/use-cases/get-site-settings'
-import {makeListCollections, type ListCollections} from '@/application/use-cases/list-collections'
-import {makeListProductSlugs, type ListProductSlugs} from '@/application/use-cases/list-product-slugs'
-import {
-  makeListStorefrontProducts,
-  type ListStorefrontProducts,
-} from '@/application/use-cases/list-storefront-products'
-import {makePlaceOrder, type PlaceOrder} from '@/application/use-cases/place-order'
-import {
-  makeRecordProductInterest,
-  type RecordProductInterest,
-} from '@/application/use-cases/record-product-interest'
-import {
-  makeGetOrderByNumber,
-  makeListServices,
-  type GetOrderByNumber,
-  type ListServices,
-} from '@/application/use-cases/services'
-import {
-  makeSubmitServiceRequest,
-  type SubmitServiceRequest,
-} from '@/application/use-cases/submit-service-request'
+import {makeAccountUseCases} from '@/application/use-cases/accounts'
+import {makeCartUseCases} from '@/application/use-cases/cart'
+import {makeGetProductDetail} from '@/application/use-cases/get-product-detail'
+import {makeGetProductSeo} from '@/application/use-cases/get-product-seo'
+import {makeGetSiteSettings} from '@/application/use-cases/get-site-settings'
+import {makeListCollections} from '@/application/use-cases/list-collections'
+import {makeListProductSlugs} from '@/application/use-cases/list-product-slugs'
+import {makeListStorefrontProducts} from '@/application/use-cases/list-storefront-products'
+import {makePlaceOrder} from '@/application/use-cases/place-order'
+import {makeQuoteCart} from '@/application/use-cases/quote-cart'
+import {makeRecordProductInterest} from '@/application/use-cases/record-product-interest'
+import {makeGetOrderByNumber, makeListServices} from '@/application/use-cases/services'
+import {makeSubmitServiceRequest} from '@/application/use-cases/submit-service-request'
 import type {ImageUrlResolver} from '@/core/ports/image-url-resolver'
-import {storefrontConfig, type StorefrontConfig} from '@/infrastructure/config/env'
-import {createManualPaymentGateway} from '@/infrastructure/payments/manual-payment-gateway'
+import {authSecret, storefrontConfig, type StorefrontConfig} from '@/infrastructure/config/env'
+import {createCookieSessionStore} from '@/infrastructure/auth/cookie-session-store'
+import {createHmacSessionTokens} from '@/infrastructure/auth/hmac-session-tokens'
+import {createScryptPasswordHasher} from '@/infrastructure/auth/scrypt-password-hasher'
+import {createCookieCartStore} from '@/infrastructure/cart/cookie-cart-store'
+import {createCashOnDeliveryGateway} from '@/infrastructure/payments/manual-payment-gateway'
 import {createSanityCollectionRepository} from '@/infrastructure/sanity/sanity-collection-repository'
 import {
   createSanityCustomerRepository,
@@ -47,7 +40,7 @@ import {createSanitySiteSettingsRepository} from '@/infrastructure/sanity/sanity
  * or `presentation`.
  */
 
-const {currency} = storefrontConfig
+const {currency, secureCookies} = storefrontConfig
 
 const products = createSanityProductRepository({currency})
 const collections = createSanityCollectionRepository({currency})
@@ -58,24 +51,22 @@ const orders = createSanityOrderRepository({currency})
 const serviceRequests = createSanityServiceRequestRepository()
 const productInterest = createSanityProductInterestRepository()
 
-/** Add a provider adapter here when one is chosen; the first match wins. */
-const paymentGateways = [createManualPaymentGateway()]
+const cartStore = createCookieCartStore({secure: secureCookies})
+const quoteCart = makeQuoteCart({products, currency})
+const cart = makeCartUseCases({cart: cartStore, settings, quoteCart})
 
-export interface UseCases {
-  readonly listStorefrontProducts: ListStorefrontProducts
-  readonly listCollections: ListCollections
-  readonly getProductDetail: GetProductDetail
-  readonly listProductSlugs: ListProductSlugs
-  readonly getProductSeo: GetProductSeo
-  readonly getSiteSettings: GetSiteSettings
-  readonly listServices: ListServices
-  readonly placeOrder: PlaceOrder
-  readonly getOrderByNumber: GetOrderByNumber
-  readonly submitServiceRequest: SubmitServiceRequest
-  readonly recordProductInterest: RecordProductInterest
-}
+const accounts = makeAccountUseCases({
+  customers,
+  orders,
+  hasher: createScryptPasswordHasher(),
+  tokens: createHmacSessionTokens({secret: authSecret}),
+  session: createCookieSessionStore({secure: secureCookies}),
+})
 
-export const useCases: UseCases = {
+/** Cash on delivery only, by the owner's decision. */
+const paymentGateways = [createCashOnDeliveryGateway()]
+
+export const useCases = {
   listStorefrontProducts: makeListStorefrontProducts({products}),
   listCollections: makeListCollections({collections}),
   getProductDetail: makeGetProductDetail({products}),
@@ -83,18 +74,25 @@ export const useCases: UseCases = {
   getProductSeo: makeGetProductSeo({products}),
   getSiteSettings: makeGetSiteSettings({settings}),
   listServices: makeListServices({services: serviceRepository}),
-  placeOrder: makePlaceOrder({products, customers, orders, settings, gateways: paymentGateways}),
+  placeOrder: makePlaceOrder({quoteCart, customers, orders, settings, gateways: paymentGateways}),
   getOrderByNumber: makeGetOrderByNumber({orders}),
   submitServiceRequest: makeSubmitServiceRequest({services: serviceRepository, requests: serviceRequests}),
   recordProductInterest: makeRecordProductInterest({products, interest: productInterest}),
-}
+  ...cart,
+  ...accounts,
+} as const
+
+export type UseCases = typeof useCases
 
 export interface Services {
   readonly imageUrls: ImageUrlResolver
   readonly storefront: StorefrontConfig
+  /** True when AUTH_SECRET is set, so pages can hide sign-in when it is not. */
+  readonly accountsEnabled: boolean
 }
 
 export const services: Services = {
   imageUrls: createSanityImageUrlResolver(),
   storefront: storefrontConfig,
+  accountsEnabled: Boolean(authSecret && authSecret.length >= 32),
 }

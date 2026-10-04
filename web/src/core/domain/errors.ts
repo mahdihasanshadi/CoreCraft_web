@@ -57,6 +57,40 @@ export class WriteAccessUnavailableError extends DomainError {
   }
 }
 
+/** Sign-in needs a session secret that has not been configured. */
+export class AuthUnavailableError extends DomainError {
+  readonly code = 'AUTH_UNAVAILABLE'
+
+  constructor() {
+    super('Accounts are not configured on this server yet.')
+  }
+}
+
+/** Wrong phone or password. Deliberately does not say which. */
+export class InvalidCredentialsError extends DomainError {
+  readonly code = 'INVALID_CREDENTIALS'
+
+  constructor() {
+    super('That phone number and password do not match.')
+  }
+}
+
+export class PhoneAlreadyRegisteredError extends DomainError {
+  readonly code = 'PHONE_ALREADY_REGISTERED'
+
+  constructor() {
+    super('An account with that phone number already exists. Sign in instead.')
+  }
+}
+
+export class NotAuthenticatedError extends DomainError {
+  readonly code = 'NOT_AUTHENTICATED'
+
+  constructor() {
+    super('Sign in to continue.')
+  }
+}
+
 export function isDomainError(error: unknown): error is DomainError {
   return error instanceof DomainError
 }
