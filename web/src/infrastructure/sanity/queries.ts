@@ -152,7 +152,7 @@ export const COLLECTIONS_QUERY = defineQuery(`
     "slug": slug.current,
     description,
     "heroImage": image{${IMAGE_PROJECTION}},
-    "products": products[]->[${PURCHASABLE}]{
+    "products": products[@->status == "active" && defined(@->slug.current)]->{
       ${PRODUCT_SUMMARY_PROJECTION}
     }
   }
