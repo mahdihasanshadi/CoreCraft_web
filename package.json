@@ -1,0 +1,15 @@
+{
+  "name": "corecraft",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CoreCraft e-commerce: Sanity Studio backend and Next.js storefront.",
+  "scripts": {
+    "dev": "npm run dev --prefix studio & npm run dev --prefix web & wait",
+    "dev:studio": "npm run dev --prefix studio",
+    "dev:web": "npm run dev --prefix web",
+    "build:studio": "npm run build --prefix studio",
+    "build:web": "npm run build --prefix web",
+    "install:all": "npm install --prefix studio && npm install --prefix web",
+    "typegen": "npm run typegen --prefix studio"
+  }
+}

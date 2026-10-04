@@ -1,0 +1,20 @@
+# macOS
+.DS_Store
+
+# Editor
+*.swp
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Logs
+*.log
+npm-debug.log*
+
+# Local env files
+.env
+.env.*
+!.env.example
+
+# Dependencies installed at the repo root
+/node_modules
