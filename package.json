@@ -11,5 +11,10 @@
     "build:web": "npm run build --prefix web",
     "install:all": "npm install --prefix studio && npm install --prefix web",
     "typegen": "npm run typegen --prefix studio"
+  },
+  "devDependencies": {
+    "@sanity/blueprints": "^0.28.0",
+    "@sanity/client": "^8.9.0",
+    "@sanity/functions": "^1.8.1"
   }
 }

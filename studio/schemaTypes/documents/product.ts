@@ -81,7 +81,7 @@ export const product = defineType({
       of: [
         defineArrayMember({
           type: 'image',
-          options: {hotspot: true},
+          options: {hotspot: true, aiAssist: {imageDescriptionField: 'alt'}},
           fields: [
             defineField({
               name: 'alt',
@@ -112,7 +112,7 @@ export const product = defineType({
         defineArrayMember({type: 'block'}),
         defineArrayMember({
           type: 'image',
-          options: {hotspot: true},
+          options: {hotspot: true, aiAssist: {imageDescriptionField: 'alt'}},
           fields: [defineField({name: 'alt', title: 'Alternative text', type: 'string'})],
         }),
       ],
@@ -168,6 +168,7 @@ export const product = defineType({
       title: 'Size chart',
       type: 'image',
       group: 'details',
+      options: {aiAssist: {imageDescriptionField: 'alt'}},
       fields: [defineField({name: 'alt', title: 'Alternative text', type: 'string'})],
     }),
     defineField({

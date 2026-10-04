@@ -24,7 +24,7 @@ export const brand = defineType({
       name: 'logo',
       title: 'Logo',
       type: 'image',
-      options: {hotspot: true},
+      options: {hotspot: true, aiAssist: {imageDescriptionField: 'alt'}},
       fields: [
         defineField({
           name: 'alt',

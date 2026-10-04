@@ -1,0 +1,30 @@
+{
+  "_id": "order-sample",
+  "_type": "order",
+  "orderNumber": "CC-261004-9401",
+  "total": 2740,
+  "currency": "BDT",
+  "customer": {
+    "name": "Test Customer",
+    "phone": "01700000000"
+  },
+  "shippingAddress": {
+    "city": "Dhaka",
+    "area": "Mirpur"
+  },
+  "items": [
+    {
+      "name": "Argentina Home Jersey 2026",
+      "variant": "Home / L",
+      "quantity": 1
+    },
+    {
+      "name": "Heavyweight Essential Tee",
+      "variant": "Black / M",
+      "quantity": 2
+    }
+  ],
+  "payment": {
+    "method": "cod"
+  }
+}

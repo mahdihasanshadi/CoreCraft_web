@@ -31,7 +31,7 @@ export const collection = defineType({
       name: 'image',
       title: 'Hero image',
       type: 'image',
-      options: {hotspot: true},
+      options: {hotspot: true, aiAssist: {imageDescriptionField: 'alt'}},
       fields: [
         defineField({
           name: 'alt',

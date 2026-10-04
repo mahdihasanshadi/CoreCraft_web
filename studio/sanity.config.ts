@@ -1,6 +1,7 @@
 import {defineConfig, type DocumentActionComponent, type Template, type Tool} from 'sanity'
 import {presentationTool} from 'sanity/presentation'
 import {structureTool} from 'sanity/structure'
+import {assist} from '@sanity/assist'
 import {visionTool} from '@sanity/vision'
 
 import {AdvanceOrderAction, CashCollectedAction} from './actions/order-actions'
@@ -62,6 +63,8 @@ export default defineConfig([
         },
       }),
       visionTool({defaultApiVersion: '2026-10-04'}),
+      // Drafts descriptions, excerpts and alt text. Enable once in Manage.
+      assist(),
     ],
     tools: adminOnlyVision,
     schema: {

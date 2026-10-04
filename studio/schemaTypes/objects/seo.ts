@@ -26,7 +26,7 @@ export const seo = defineType({
       name: 'image',
       title: 'Social share image',
       type: 'image',
-      options: {hotspot: true},
+      options: {hotspot: true, aiAssist: {imageDescriptionField: 'alt'}},
     }),
   ],
 })

@@ -11,6 +11,8 @@ export default defineCliConfig({
      * Learn more at https://www.sanity.io/docs/studio/latest-version-of-sanity#k47faf43faf56
      */
     autoUpdates: true,
+    /** The hosted Studio at https://corecraft.sanity.studio */
+    appId: 'a7ejg1lv8fp9jm1yn0ieu000',
   },
   typegen: {
     enabled: true,

@@ -18,3 +18,8 @@ npm-debug.log*
 
 # Dependencies installed at the repo root
 /node_modules
+
+# Sanity Functions
+functions/**/.env*
+functions/**/.build/
+functions/**/node_modules/

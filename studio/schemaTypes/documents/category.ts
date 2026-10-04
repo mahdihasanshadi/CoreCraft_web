@@ -30,7 +30,7 @@ export const category = defineType({
       name: 'image',
       title: 'Image',
       type: 'image',
-      options: {hotspot: true},
+      options: {hotspot: true, aiAssist: {imageDescriptionField: 'alt'}},
       fields: [
         defineField({
           name: 'alt',

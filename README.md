@@ -94,6 +94,42 @@ Photos on products and category tiles are a mix of generated placeholders and
 free Pexels photos (asset credit lines say which). Replace them with your own
 shoots in the same fields.
 
+### Hosted Studio, releases, notifications, AI
+
+- **Hosted Studio**: https://corecraft.sanity.studio (app id in
+  `studio/sanity.cli.ts`). Redeploy with `cd studio && npx sanity deploy`.
+  Local and hosted Studios share the same project, so either is fine.
+- **Releases**: group changes and publish them together, now or on a
+  schedule. The content workspace has a release called **World Cup 2026
+  drop** with a staged launch price on the Argentina jersey as a worked
+  example: open the releases menu (top bar), pick it, review the version,
+  then *Schedule* or *Publish*. Until then the shop keeps showing the current
+  published price.
+- **Comments and Tasks**: built in. Select any field or document and use the
+  comment icon to leave a note for a colleague; the Tasks panel (top bar)
+  assigns work with due dates. Nothing to configure.
+- **AI Assist**: image fields generate alt text with the sparkle button, and
+  any text field can be filled from an instruction (for example "write a
+  two-sentence excerpt from the description"). Turn it on once per project
+  in Manage → API → AI Assist, then the sparkle appears in the Studio.
+- **Order notifications**: a Sanity Function (`functions/order-notify`) posts
+  every new order to a Telegram group. It is defined in `sanity.blueprint.ts`
+  and lives in the private commerce dataset's event stream, so nothing about
+  orders leaves Sanity except the message itself.
+
+```bash
+# from the repo root
+npx sanity blueprints plan                                  # preview
+npx sanity blueprints deploy                                # create or update the function
+npx sanity functions env add order-notify TELEGRAM_BOT_TOKEN <token from @BotFather>
+npx sanity functions env add order-notify TELEGRAM_CHAT_ID <group or channel id>
+npx sanity functions test order-notify --file functions/order-notify/sample-order.json
+npx sanity functions logs order-notify                      # after a real order
+```
+
+Without the two Telegram variables the function logs a warning and does
+nothing, so deploying it early is safe.
+
 ## Storefront architecture
 
 `web/src` follows Clean Architecture. Dependencies point inward only.
