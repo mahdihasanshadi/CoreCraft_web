@@ -10,6 +10,7 @@ import {commerceTypes, contentTypes} from './schemaTypes'
 import {commerceStructure} from './structure/commerce'
 import {contentDefaultDocumentNode, contentStructure} from './structure/content'
 import {productTemplates} from './templates'
+import {overviewTool} from './tools/overview'
 
 const projectId = '3krwldhr'
 const previewOrigin = process.env.SANITY_STUDIO_PREVIEW_ORIGIN ?? 'http://localhost:3000'
@@ -85,7 +86,8 @@ export default defineConfig([
     projectId,
     dataset: 'commerce',
     plugins: [structureTool({structure: commerceStructure}), visionTool({defaultApiVersion: '2026-10-04'})],
-    tools: adminOnlyVision,
+    // Overview first, so the workspace opens on today's numbers.
+    tools: (tools, context) => [overviewTool, ...adminOnlyVision(tools, context)],
     schema: {
       types: commerceTypes,
       templates: (templates) => hideFromCreateMenu(templates, STOREFRONT_ONLY),
