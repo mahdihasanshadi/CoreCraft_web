@@ -1,26 +1,197 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/*
+ * Design tokens.
+ *
+ * Every colour in the UI is one of these names, never a raw Tailwind palette
+ * step. That is what lets the dark scheme below swap the whole page by
+ * redefining a dozen variables, and what keeps the storefront looking like
+ * one product rather than a collection of components.
+ */
+@theme {
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, 'SF Mono', monospace;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* Surfaces, from the page ground up to raised cards. */
+  --color-canvas: oklch(98.4% 0.004 80);
+  --color-surface: oklch(100% 0 0);
+  --color-surface-muted: oklch(96.2% 0.005 80);
+  --color-surface-sunken: oklch(94% 0.006 80);
+
+  /* Lines and dividers. */
+  --color-line: oklch(90.5% 0.007 80);
+  --color-line-strong: oklch(82% 0.009 80);
+
+  /* Text, strongest to faintest. */
+  --color-ink: oklch(20% 0.012 60);
+  --color-ink-muted: oklch(46% 0.014 60);
+  --color-ink-faint: oklch(64% 0.012 60);
+
+  /* Brand accent: a warm copper that suits a crafted-goods store. */
+  --color-accent: oklch(57% 0.14 45);
+  --color-accent-strong: oklch(49% 0.15 45);
+  --color-accent-soft: oklch(94.5% 0.035 45);
+  --color-on-accent: oklch(99% 0 0);
+
+  /* Semantic states. */
+  --color-success: oklch(54% 0.13 150);
+  --color-success-soft: oklch(94.5% 0.045 150);
+  --color-sale: oklch(54% 0.19 25);
+  --color-sale-soft: oklch(94.5% 0.045 25);
+
+  --radius-card: 0.875rem;
+  --radius-control: 0.5rem;
+
+  --shadow-card:
+    0 1px 2px oklch(0% 0 0 / 0.04),
+    0 8px 24px -12px oklch(0% 0 0 / 0.12);
+  --shadow-card-raised:
+    0 2px 4px oklch(0% 0 0 / 0.05),
+    0 18px 44px -16px oklch(0% 0 0 / 0.22);
+
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --color-canvas: oklch(15% 0.008 60);
+    --color-surface: oklch(19% 0.009 60);
+    --color-surface-muted: oklch(23% 0.01 60);
+    --color-surface-sunken: oklch(12.5% 0.008 60);
+
+    --color-line: oklch(28% 0.01 60);
+    --color-line-strong: oklch(38% 0.012 60);
+
+    --color-ink: oklch(95% 0.006 80);
+    --color-ink-muted: oklch(70% 0.01 80);
+    --color-ink-faint: oklch(54% 0.01 80);
+
+    --color-accent: oklch(72% 0.13 50);
+    --color-accent-strong: oklch(80% 0.12 50);
+    --color-accent-soft: oklch(27% 0.05 45);
+    --color-on-accent: oklch(16% 0.02 45);
+
+    --color-success: oklch(72% 0.13 150);
+    --color-success-soft: oklch(26% 0.05 150);
+    --color-sale: oklch(70% 0.17 25);
+    --color-sale-soft: oklch(27% 0.06 25);
+
+    --shadow-card:
+      0 1px 2px oklch(0% 0 0 / 0.3),
+      0 8px 24px -12px oklch(0% 0 0 / 0.5);
+    --shadow-card-raised:
+      0 2px 4px oklch(0% 0 0 / 0.35),
+      0 18px 44px -16px oklch(0% 0 0 / 0.65);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer base {
+  html {
+    color-scheme: light dark;
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-feature-settings: 'ss01', 'cv11';
+    text-rendering: optimizeLegibility;
+  }
+
+  /* One focus style, everywhere, and only for keyboard users. */
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 3px;
+    border-radius: var(--radius-control);
+  }
+
+  ::selection {
+    background-color: var(--color-accent-soft);
+    color: var(--color-ink);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@utility text-balance {
+  text-wrap: balance;
+}
+
+@utility text-pretty {
+  text-wrap: pretty;
+}
+
+/* Reading styles for editor-authored rich text. */
+@utility prose-store {
+  color: var(--color-ink-muted);
+  font-size: 1rem;
+  line-height: 1.7;
+
+  & > * + * {
+    margin-top: 1em;
+  }
+  & h2,
+  & h3,
+  & h4 {
+    color: var(--color-ink);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.25;
+    margin-top: 1.75em;
+  }
+  & h2 {
+    font-size: 1.375rem;
+  }
+  & h3 {
+    font-size: 1.125rem;
+  }
+  & strong {
+    color: var(--color-ink);
+    font-weight: 600;
+  }
+  & a {
+    color: var(--color-accent);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+  }
+  & a:hover {
+    color: var(--color-accent-strong);
+  }
+  & ul,
+  & ol {
+    padding-left: 1.4em;
+  }
+  & ul {
+    list-style: disc;
+  }
+  & ol {
+    list-style: decimal;
+  }
+  & li + li {
+    margin-top: 0.4em;
+  }
+  & blockquote {
+    border-left: 3px solid var(--color-line-strong);
+    color: var(--color-ink);
+    font-style: italic;
+    padding-left: 1.25em;
+  }
+  & img {
+    border-radius: var(--radius-card);
+    width: 100%;
+  }
 }
