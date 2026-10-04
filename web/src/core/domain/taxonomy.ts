@@ -24,4 +24,6 @@ export interface Category extends CategorySummary {
   readonly description: string | null
   readonly image: ImageRef | null
   readonly parentSlug: string | null
+  /** Purchasable products in this category, for tiles and empty states. */
+  readonly productCount: number
 }

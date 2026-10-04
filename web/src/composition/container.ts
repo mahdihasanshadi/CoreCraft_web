@@ -1,5 +1,6 @@
 import {makeAccountUseCases} from '@/application/use-cases/accounts'
 import {makeCartUseCases} from '@/application/use-cases/cart'
+import {makeCatalogueUseCases} from '@/application/use-cases/catalogue'
 import {makeGetProductDetail} from '@/application/use-cases/get-product-detail'
 import {makeGetProductSeo} from '@/application/use-cases/get-product-seo'
 import {makeGetSiteSettings} from '@/application/use-cases/get-site-settings'
@@ -18,6 +19,7 @@ import {createHmacSessionTokens} from '@/infrastructure/auth/hmac-session-tokens
 import {createScryptPasswordHasher} from '@/infrastructure/auth/scrypt-password-hasher'
 import {createCookieCartStore} from '@/infrastructure/cart/cookie-cart-store'
 import {createCashOnDeliveryGateway} from '@/infrastructure/payments/manual-payment-gateway'
+import {createSanityCategoryRepository} from '@/infrastructure/sanity/sanity-category-repository'
 import {createSanityCollectionRepository} from '@/infrastructure/sanity/sanity-collection-repository'
 import {
   createSanityCustomerRepository,
@@ -43,6 +45,7 @@ import {createSanitySiteSettingsRepository} from '@/infrastructure/sanity/sanity
 const {currency, secureCookies} = storefrontConfig
 
 const products = createSanityProductRepository({currency})
+const categories = createSanityCategoryRepository()
 const collections = createSanityCollectionRepository({currency})
 const settings = createSanitySiteSettingsRepository({currency, fallbackStoreName: 'CoreCraft'})
 const serviceRepository = createSanityServiceRepository({currency})
@@ -54,6 +57,7 @@ const productInterest = createSanityProductInterestRepository()
 const cartStore = createCookieCartStore({secure: secureCookies})
 const quoteCart = makeQuoteCart({products, currency})
 const cart = makeCartUseCases({cart: cartStore, settings, quoteCart})
+const catalogue = makeCatalogueUseCases({products, categories})
 
 const accounts = makeAccountUseCases({
   customers,
@@ -78,6 +82,7 @@ export const useCases = {
   getOrderByNumber: makeGetOrderByNumber({orders}),
   submitServiceRequest: makeSubmitServiceRequest({services: serviceRepository, requests: serviceRequests}),
   recordProductInterest: makeRecordProductInterest({products, interest: productInterest}),
+  ...catalogue,
   ...cart,
   ...accounts,
 } as const

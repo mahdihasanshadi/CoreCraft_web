@@ -35,8 +35,9 @@ const PRODUCT_SUMMARY_PROJECTION = /* groq */ `
   compareAtPrice,
   stock,
   "primaryImage": images[0]{${IMAGE_PROJECTION}},
+  "secondaryImage": images[1]{${IMAGE_PROJECTION}},
   "brand": brand->{name, "slug": slug.current},
-  "variants": variants[]{stock, colour, colourHex}
+  "variants": variants[]{stock, colour, colourHex, size}
 `
 
 const PURCHASABLE = /* groq */ `_type == "product" && status == "active" && defined(slug.current)`
@@ -46,6 +47,46 @@ export const PURCHASABLE_PRODUCTS_QUERY = defineQuery(`
   *[${PURCHASABLE}]{
     ${PRODUCT_SUMMARY_PROJECTION}
   }
+`)
+
+/**
+ * Filtered listing. Optional params are matched with "null or equal" so one
+ * query serves every combination. Sorting is applied by the caller for
+ * "featured"; the plain field orders are separate queries below because GROQ
+ * cannot take an order direction as a parameter.
+ */
+const FILTERED = /* groq */ `${PURCHASABLE}
+  && ($type == null || productType == $type)
+  && ($category == null || $category in categories[]->slug.current)`
+
+export const FILTERED_PRODUCTS_BY_NAME_QUERY = defineQuery(`
+  *[${FILTERED}] | order(name asc){${PRODUCT_SUMMARY_PROJECTION}}
+`)
+export const FILTERED_PRODUCTS_NEWEST_QUERY = defineQuery(`
+  *[${FILTERED}] | order(_createdAt desc){${PRODUCT_SUMMARY_PROJECTION}}
+`)
+export const FILTERED_PRODUCTS_PRICE_ASC_QUERY = defineQuery(`
+  *[${FILTERED}] | order(price asc){${PRODUCT_SUMMARY_PROJECTION}}
+`)
+export const FILTERED_PRODUCTS_PRICE_DESC_QUERY = defineQuery(`
+  *[${FILTERED}] | order(price desc){${PRODUCT_SUMMARY_PROJECTION}}
+`)
+
+export const NEWEST_PRODUCTS_QUERY = defineQuery(`
+  *[${PURCHASABLE}] | order(_createdAt desc)[0...8]{${PRODUCT_SUMMARY_PROJECTION}}
+`)
+
+/** Same type or a shared category, featured first, never the product itself. */
+export const RELATED_PRODUCTS_QUERY = defineQuery(`
+  *[${PURCHASABLE} && _id != $id
+    && (productType == $type || count((categories[]->slug.current)[@ in $categories]) > 0)]
+  | order(featured desc, _createdAt desc)[0...4]{${PRODUCT_SUMMARY_PROJECTION}}
+`)
+
+/** Prefix match over the fields shoppers actually type. */
+export const SEARCH_PRODUCTS_QUERY = defineQuery(`
+  *[${PURCHASABLE} && [name, excerpt, team, season, fabric, productType] match $term]
+  | order(featured desc, name asc)[0...24]{${PRODUCT_SUMMARY_PROJECTION}}
 `)
 
 export const PRODUCT_BY_SLUG_QUERY = defineQuery(`
@@ -100,6 +141,18 @@ export const PRODUCT_SEO_BY_SLUG_QUERY = defineQuery(`
   }
 `)
 
+export const CATEGORIES_QUERY = defineQuery(`
+  *[_type == "category" && defined(slug.current)] | order(title asc){
+    _id,
+    title,
+    "slug": slug.current,
+    description,
+    "image": image{${IMAGE_PROJECTION}},
+    "parentSlug": parent->slug.current,
+    "productCount": count(*[${PURCHASABLE} && references(^._id)])
+  }
+`)
+
 /** The singleton, by its fixed ID. */
 export const SITE_SETTINGS_QUERY = defineQuery(`
   *[_id == "siteSettings"][0]{
@@ -107,6 +160,9 @@ export const SITE_SETTINGS_QUERY = defineQuery(`
     tagline,
     heroHeading,
     heroText,
+    "heroImage": heroImage{${IMAGE_PROJECTION}},
+    heroCta,
+    usps,
     "logo": logo{${IMAGE_PROJECTION}},
     announcement,
     contactEmail,

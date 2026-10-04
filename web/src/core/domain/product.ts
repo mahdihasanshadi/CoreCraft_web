@@ -96,7 +96,14 @@ export interface ProductSummary {
   readonly price: Money
   readonly compareAtPrice: Money | null
   readonly primaryImage: ImageRef | null
+  /** Shown on hover, typically the back view. */
+  readonly secondaryImage: ImageRef | null
   readonly brand: BrandSummary | null
   readonly stock: number
-  readonly variants: readonly Pick<ProductVariant, 'stock' | 'colourHex' | 'colour'>[]
+  readonly variants: readonly Pick<ProductVariant, 'stock' | 'colourHex' | 'colour' | 'size'>[]
 }
+
+/** Sort orders a listing can ask for. A business vocabulary, not a GROQ one. */
+export const productSorts = ['featured', 'newest', 'priceAsc', 'priceDesc'] as const
+export type ProductSort = (typeof productSorts)[number]
+export const isProductSort = (value: unknown): value is ProductSort => isOneOf(productSorts, value)

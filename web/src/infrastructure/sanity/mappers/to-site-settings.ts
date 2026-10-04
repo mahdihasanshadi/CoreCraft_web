@@ -8,6 +8,9 @@ export interface RawSiteSettings {
   tagline?: string | null
   heroHeading?: string | null
   heroText?: string | null
+  heroImage?: RawImage | null
+  heroCta?: {label?: string | null; href?: string | null} | null
+  usps?: (string | null)[] | null
   logo?: RawImage | null
   announcement?: {enabled?: boolean | null; text?: string | null; href?: string | null} | null
   contactEmail?: string | null
@@ -60,6 +63,12 @@ export function toSiteSettings(
     tagline: raw?.tagline ?? null,
     heroHeading: raw?.heroHeading ?? null,
     heroText: raw?.heroText ?? null,
+    heroImage: toImageRef(raw?.heroImage),
+    heroCta:
+      raw?.heroCta?.label && cleanString(raw.heroCta.href)
+        ? {label: raw.heroCta.label, href: cleanString(raw.heroCta.href) as string}
+        : null,
+    usps: Array.isArray(raw?.usps) ? raw.usps.filter((line): line is string => typeof line === 'string' && line.length > 0) : [],
     logo: toImageRef(raw?.logo),
     announcement: announcementText
       ? {text: announcementText, href: cleanString(raw?.announcement?.href)}

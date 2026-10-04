@@ -5,8 +5,10 @@ import {VisualEditing} from 'next-sanity/visual-editing'
 
 import {services, useCases} from '@/composition/container'
 import {SanityLive} from '@/infrastructure/sanity/live'
+import {MobileTabBar} from '@/presentation/components/mobile-tab-bar'
 import {SiteFooter} from '@/presentation/components/site-footer'
 import {SiteHeader} from '@/presentation/components/site-header'
+import {primaryNavigation} from '@/presentation/navigation'
 
 import './globals.css'
 
@@ -30,18 +32,16 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function RootLayout({children}: LayoutProps<'/'>) {
-  const [{isEnabled: isDraftMode}, settings] = await Promise.all([
-    draftMode(),
-    useCases.getSiteSettings(),
-  ])
+  const [{isEnabled: isDraftMode}, settings] = await Promise.all([draftMode(), useCases.getSiteSettings()])
 
   return (
     <html lang="en" data-scroll-behavior="smooth" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
-      <body className="flex min-h-full flex-col">
+      <body className="flex min-h-full flex-col pb-16 sm:pb-0">
         <SiteHeader
           storeName={settings.storeName}
           announcement={settings.announcement}
           accountsEnabled={services.accountsEnabled}
+          navigation={primaryNavigation}
         />
         <main id="main" className="flex flex-1 flex-col">
           {children}
@@ -54,6 +54,7 @@ export default async function RootLayout({children}: LayoutProps<'/'>) {
           whatsapp={settings.whatsapp}
           social={settings.social}
         />
+        <MobileTabBar accountsEnabled={services.accountsEnabled} />
         <SanityLive />
         {isDraftMode && <VisualEditing />}
       </body>

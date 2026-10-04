@@ -72,8 +72,9 @@ export interface RawProductSummary {
   compareAtPrice?: number | null
   stock?: number | null
   primaryImage?: RawImage | null
+  secondaryImage?: RawImage | null
   brand?: RawBrand | null
-  variants?: (Pick<RawVariant, 'stock' | 'colour' | 'colourHex'> | null)[] | null
+  variants?: (Pick<RawVariant, 'stock' | 'colour' | 'colourHex' | 'size'> | null)[] | null
 }
 
 export interface RawProduct extends Omit<RawProductSummary, 'variants'> {
@@ -225,6 +226,7 @@ export function toProductSummary(
     price,
     compareAtPrice: toMoney(raw.compareAtPrice, currency),
     primaryImage: toImageRef(raw.primaryImage),
+    secondaryImage: toImageRef(raw.secondaryImage),
     brand: toBrandSummary(raw.brand),
     stock: toNumber(raw.stock),
     variants: Array.isArray(raw.variants)
@@ -232,6 +234,7 @@ export function toProductSummary(
           stock: toNumber(variant?.stock),
           colour: variant?.colour ?? null,
           colourHex: cleanString(variant?.colourHex),
+          size: cleanString(variant?.size) ?? '',
         }))
       : [],
   }

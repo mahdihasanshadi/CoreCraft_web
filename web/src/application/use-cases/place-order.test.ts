@@ -65,6 +65,9 @@ export const settings: SiteSettings = {
   tagline: null,
   heroHeading: null,
   heroText: null,
+  heroImage: null,
+  heroCta: null,
+  usps: [],
   logo: null,
   announcement: null,
   contactEmail: null,
@@ -81,6 +84,10 @@ export const settings: SiteSettings = {
 export function fakeProducts(catalogue: Product[] = [jersey, tee]): ProductRepository {
   return {
     listPurchasable: async () => [],
+    listFiltered: async () => [],
+    listNewest: async () => [],
+    listRelated: async () => [],
+    search: async () => [],
     listPurchasableSlugs: async () => [],
     findSeoBySlug: async () => null,
     findBySlug: async (slug) => catalogue.find((product) => product.slug === slug) ?? null,

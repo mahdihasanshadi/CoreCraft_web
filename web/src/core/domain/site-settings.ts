@@ -34,11 +34,20 @@ export interface Announcement {
   readonly href: string | null
 }
 
+export interface CallToAction {
+  readonly label: string
+  readonly href: string
+}
+
 export interface SiteSettings {
   readonly storeName: string
   readonly tagline: string | null
   readonly heroHeading: string | null
   readonly heroText: string | null
+  readonly heroImage: ImageRef | null
+  readonly heroCta: CallToAction | null
+  /** Short promises shown under the hero: "Cash on delivery", and so on. */
+  readonly usps: readonly string[]
   readonly logo: ImageRef | null
   readonly announcement: Announcement | null
   readonly contactEmail: string | null
