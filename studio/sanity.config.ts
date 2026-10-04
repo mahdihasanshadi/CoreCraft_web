@@ -3,10 +3,12 @@ import {presentationTool} from 'sanity/presentation'
 import {structureTool} from 'sanity/structure'
 import {visionTool} from '@sanity/vision'
 
+import {FulfilmentStatusBadge, PaymentStatusBadge} from './badges/order-badges'
 import {resolve} from './presentation/resolve'
 import {commerceTypes, contentTypes} from './schemaTypes'
 import {commerceStructure} from './structure/commerce'
 import {contentDefaultDocumentNode, contentStructure} from './structure/content'
+import {productTemplates} from './templates'
 
 const projectId = '3krwldhr'
 const previewOrigin = process.env.SANITY_STUDIO_PREVIEW_ORIGIN ?? 'http://localhost:3000'
@@ -55,7 +57,7 @@ export default defineConfig([
     ],
     schema: {
       types: contentTypes,
-      templates: (templates) => hideFromCreateMenu(templates, SINGLETONS),
+      templates: (templates) => [...hideFromCreateMenu(templates, SINGLETONS), ...productTemplates],
     },
     document: {
       actions: (actions, {schemaType}) =>
@@ -78,6 +80,10 @@ export default defineConfig([
     schema: {
       types: commerceTypes,
       templates: (templates) => hideFromCreateMenu(templates, STOREFRONT_ONLY),
+    },
+    document: {
+      badges: (badges, {schemaType}) =>
+        schemaType === 'order' ? [PaymentStatusBadge, FulfilmentStatusBadge, ...badges] : badges,
     },
   },
 ])

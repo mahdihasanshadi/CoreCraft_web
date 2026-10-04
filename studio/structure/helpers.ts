@@ -24,7 +24,10 @@ export function singletonItem(
     .child(S.document().schemaType(options.type).documentId(options.type).title(options.title))
 }
 
-/** A filtered document list that still knows which type it shows. */
+/**
+ * A filtered document list that still knows which type it shows, and which
+ * create templates its "New" button should offer.
+ */
 export function filteredList(
   S: StructureBuilder,
   options: {
@@ -35,6 +38,8 @@ export function filteredList(
     params?: Record<string, unknown>
     icon?: ComponentType
     defaultOrdering?: {field: string; direction: 'asc' | 'desc'}[]
+    /** Initial value template IDs offered by the list's create button. */
+    templates?: readonly string[]
   },
 ) {
   let list = S.documentList()
@@ -46,6 +51,11 @@ export function filteredList(
 
   if (options.params) list = list.params(options.params)
   if (options.defaultOrdering) list = list.defaultOrdering(options.defaultOrdering)
+  if (options.templates) {
+    list = list.initialValueTemplates(
+      options.templates.map((templateId) => S.initialValueTemplateItem(templateId)),
+    )
+  }
 
   return S.listItem().id(options.id).title(options.title).icon(options.icon).child(list)
 }

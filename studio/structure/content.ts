@@ -7,6 +7,7 @@ import {TagIcon} from '@sanity/icons/Tag'
 import {WrenchIcon} from '@sanity/icons/Wrench'
 
 import {productTypes} from '../schemaTypes/documents/product'
+import {productTemplateId} from '../templates'
 import {filteredList, singletonItem} from './helpers'
 import {ProductInsights} from './views/product-insights'
 
@@ -20,7 +21,7 @@ const OUT_OF_STOCK = `_type == "product" && status == "active" && (
  *
  * Products get their own folder with the views a merchandiser reaches for
  * daily: what is live, what is still a draft, what has sold out, and each
- * garment type on its own.
+ * garment type on its own with a matching "New" button.
  */
 export const contentStructure: StructureResolver = (S) =>
   S.list()
@@ -79,6 +80,7 @@ export const contentStructure: StructureResolver = (S) =>
                   schemaType: 'product',
                   filter: '_type == "product" && productType == $type',
                   params: {type: entry.value},
+                  templates: entry.value === 'other' ? undefined : [productTemplateId(entry.value)],
                 }),
               ),
             ]),

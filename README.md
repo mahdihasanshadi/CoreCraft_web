@@ -106,6 +106,16 @@ merchant API, SSLCommerz, Stripe) is a new adapter implementing
 | `serviceRequest` | commerce | Quote requests from the services page |
 | `productInterest` | commerce | Notify-me, wishlist and enquiry signals per product |
 
+## Tests
+
+```bash
+cd web && npm test
+```
+
+Vitest covers the domain rules and the place-order use case against
+in-memory fakes, so the pricing, stock, delivery and printing rules are
+checked without a network. CI runs the same suite on every push.
+
 ## Scripts
 
 ```bash
