@@ -16,7 +16,10 @@ function required(name: string, value: string | undefined): string {
 
 export interface SanityConnectionConfig {
   readonly projectId: string
+  /** Public catalogue. */
   readonly dataset: string
+  /** Private orders, customers and enquiries. Server-only access. */
+  readonly commerceDataset: string
   readonly apiVersion: string
   readonly studioUrl: string
 }
@@ -33,6 +36,7 @@ export interface StorefrontConfig {
 export const sanityConfig: SanityConnectionConfig = {
   projectId: required('NEXT_PUBLIC_SANITY_PROJECT_ID', process.env.NEXT_PUBLIC_SANITY_PROJECT_ID),
   dataset: required('NEXT_PUBLIC_SANITY_DATASET', process.env.NEXT_PUBLIC_SANITY_DATASET),
+  commerceDataset: process.env.SANITY_COMMERCE_DATASET ?? 'commerce',
   /**
    * Pinned deliberately. Bumping this date opts into new API behaviour, so it
    * should be a reviewed change and never drift with the clock.
@@ -42,8 +46,8 @@ export const sanityConfig: SanityConnectionConfig = {
 }
 
 export const storefrontConfig: StorefrontConfig = {
-  currency: process.env.NEXT_PUBLIC_CURRENCY ?? 'USD',
-  locale: process.env.NEXT_PUBLIC_LOCALE ?? 'en-US',
+  currency: process.env.NEXT_PUBLIC_CURRENCY ?? 'BDT',
+  locale: process.env.NEXT_PUBLIC_LOCALE ?? 'en-IN',
   siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000',
   studioUrl: sanityConfig.studioUrl,
 }
@@ -53,3 +57,10 @@ export const storefrontConfig: StorefrontConfig = {
  * renders, drafts and Presentation Tool do not.
  */
 export const sanityReadToken = process.env.SANITY_API_READ_TOKEN ?? null
+
+/**
+ * Server-only write token with Editor rights on the commerce dataset. Absent
+ * means orders and enquiries cannot be saved; the forms say so instead of
+ * failing silently.
+ */
+export const sanityWriteToken = process.env.SANITY_API_WRITE_TOKEN ?? null

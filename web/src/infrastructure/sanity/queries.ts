@@ -1,9 +1,9 @@
 import {defineQuery} from 'next-sanity'
 
 /**
- * GROQ lives only in this file.
+ * GROQ for the public catalogue lives only in this file.
  *
- * Every projection names its fields so the mapper receives a known shape, and
+ * Every projection names its fields so the mappers receive a known shape, and
  * image assets are reduced to a bare `assetId` because that is all the domain
  * carries. TypeGen reads these literals to generate `sanity.types.ts`.
  */
@@ -14,17 +14,29 @@ const IMAGE_PROJECTION = /* groq */ `
   hotspot
 `
 
+const VARIANT_PROJECTION = /* groq */ `
+  _key,
+  size,
+  colour,
+  colourHex,
+  sku,
+  price,
+  stock
+`
+
 const PRODUCT_SUMMARY_PROJECTION = /* groq */ `
   _id,
   name,
   "slug": slug.current,
   excerpt,
+  productType,
+  featured,
   price,
   compareAtPrice,
   stock,
   "primaryImage": images[0]{${IMAGE_PROJECTION}},
   "brand": brand->{name, "slug": slug.current},
-  "variants": variants[]{stock}
+  "variants": variants[]{stock, colour, colourHex}
 `
 
 /** Only products an editor has marked active and given a slug. */
@@ -42,21 +54,26 @@ export const PRODUCT_BY_SLUG_QUERY = defineQuery(`
     excerpt,
     description,
     status,
+    productType,
+    featured,
     price,
     compareAtPrice,
     sku,
     stock,
+    fabric,
+    gsm,
+    fit,
+    audience,
+    careInstructions,
+    "sizeChart": sizeChart{${IMAGE_PROJECTION}},
+    team,
+    season,
+    kitType,
+    customisable,
     "images": images[]{${IMAGE_PROJECTION}},
     "brand": brand->{name, "slug": slug.current},
     "categories": categories[]->{_id, title, "slug": slug.current},
-    "variants": variants[]{
-      _key,
-      title,
-      sku,
-      price,
-      stock,
-      "options": options[]{name, value}
-    },
+    "variants": variants[]{${VARIANT_PROJECTION}},
     "seo": seo{
       title,
       description,
@@ -78,5 +95,45 @@ export const PRODUCT_SEO_BY_SLUG_QUERY = defineQuery(`
       description,
       "shareImage": image{${IMAGE_PROJECTION}}
     }
+  }
+`)
+
+/** The singleton, by its fixed ID. */
+export const SITE_SETTINGS_QUERY = defineQuery(`
+  *[_id == "siteSettings"][0]{
+    storeName,
+    tagline,
+    heroHeading,
+    heroText,
+    "logo": logo{${IMAGE_PROJECTION}},
+    announcement,
+    contactEmail,
+    contactPhone,
+    whatsapp,
+    social,
+    currency,
+    shipping,
+    enabledPaymentMethods,
+    paymentInstructions,
+    jerseyCustomisationFee,
+    "defaultSeo": defaultSeo{
+      title,
+      description,
+      "shareImage": image{${IMAGE_PROJECTION}}
+    }
+  }
+`)
+
+export const ACTIVE_SERVICES_QUERY = defineQuery(`
+  *[_type == "service" && status == "active" && defined(slug.current)] | order(title asc){
+    _id,
+    title,
+    "slug": slug.current,
+    summary,
+    description,
+    "image": image{${IMAGE_PROJECTION}},
+    startingPrice,
+    minimumQuantity,
+    turnaroundDays
   }
 `)

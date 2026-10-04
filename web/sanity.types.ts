@@ -456,12 +456,20 @@ export type AllSanitySchemaTypes =
 
 // Source: ../web/src/infrastructure/sanity/queries.ts
 // Variable: PURCHASABLE_PRODUCTS_QUERY
-// Query: *[_type == "product" && status == "active" && defined(slug.current)]{      _id,  name,  "slug": slug.current,  excerpt,  price,  compareAtPrice,  stock,  "primaryImage": images[0]{  "assetId": asset._ref,  alt,  hotspot},  "brand": brand->{name, "slug": slug.current},  "variants": variants[]{stock}  }
+// Query: *[_type == "product" && status == "active" && defined(slug.current)]{      _id,  name,  "slug": slug.current,  excerpt,  productType,  featured,  price,  compareAtPrice,  stock,  "primaryImage": images[0]{  "assetId": asset._ref,  alt,  hotspot},  "brand": brand->{name, "slug": slug.current},  "variants": variants[]{stock, colour, colourHex}  }
 export type PURCHASABLE_PRODUCTS_QUERY_RESULT = Array<{
   _id: string;
   name: string | null;
   slug: string | null;
   excerpt: string | null;
+  productType:
+    | "cricketJersey"
+    | "dropShoulder"
+    | "footballJersey"
+    | "other"
+    | "tshirt"
+    | null;
+  featured: boolean | null;
   price: number | null;
   compareAtPrice: number | null;
   stock: number | null;
@@ -476,12 +484,14 @@ export type PURCHASABLE_PRODUCTS_QUERY_RESULT = Array<{
   } | null;
   variants: Array<{
     stock: number | null;
+    colour: string | null;
+    colourHex: string | null;
   }> | null;
 }>;
 
 // Source: ../web/src/infrastructure/sanity/queries.ts
 // Variable: PRODUCT_BY_SLUG_QUERY
-// Query: *[_type == "product" && slug.current == $slug][0]{    _id,    name,    "slug": slug.current,    excerpt,    description,    status,    price,    compareAtPrice,    sku,    stock,    "images": images[]{  "assetId": asset._ref,  alt,  hotspot},    "brand": brand->{name, "slug": slug.current},    "categories": categories[]->{_id, title, "slug": slug.current},    "variants": variants[]{      _key,      title,      sku,      price,      stock,      "options": options[]{name, value}    },    "seo": seo{      title,      description,      "shareImage": image{  "assetId": asset._ref,  alt,  hotspot}    }  }
+// Query: *[_type == "product" && slug.current == $slug][0]{    _id,    name,    "slug": slug.current,    excerpt,    description,    status,    productType,    featured,    price,    compareAtPrice,    sku,    stock,    fabric,    gsm,    fit,    audience,    careInstructions,    "sizeChart": sizeChart{  "assetId": asset._ref,  alt,  hotspot},    team,    season,    kitType,    customisable,    "images": images[]{  "assetId": asset._ref,  alt,  hotspot},    "brand": brand->{name, "slug": slug.current},    "categories": categories[]->{_id, title, "slug": slug.current},    "variants": variants[]{  _key,  size,  colour,  colourHex,  sku,  price,  stock},    "seo": seo{      title,      description,      "shareImage": image{  "assetId": asset._ref,  alt,  hotspot}    }  }
 export type PRODUCT_BY_SLUG_QUERY_RESULT = {
   _id: string;
   name: string | null;
@@ -518,10 +528,33 @@ export type PRODUCT_BY_SLUG_QUERY_RESULT = {
       }
   > | null;
   status: "active" | "archived" | "draft" | null;
+  productType:
+    | "cricketJersey"
+    | "dropShoulder"
+    | "footballJersey"
+    | "other"
+    | "tshirt"
+    | null;
+  featured: boolean | null;
   price: number | null;
   compareAtPrice: number | null;
   sku: string | null;
   stock: number | null;
+  fabric: string | null;
+  gsm: number | null;
+  fit: "dropShoulder" | "oversized" | "player" | "regular" | "slim" | null;
+  audience: "kids" | "men" | "unisex" | "women" | null;
+  careInstructions: Array<string> | null;
+  sizeChart: {
+    assetId: string | null;
+    alt: string | null;
+    hotspot: SanityImageHotspot | null;
+  } | null;
+  team: string | null;
+  season: string | null;
+  kitType:
+    "away" | "goalkeeper" | "home" | "retro" | "third" | "training" | null;
+  customisable: boolean | null;
   images: Array<{
     assetId: string | null;
     alt: string | null;
@@ -538,11 +571,12 @@ export type PRODUCT_BY_SLUG_QUERY_RESULT = {
   }> | null;
   variants: Array<{
     _key: string;
-    title: null;
+    size: "3XL" | "L" | "M" | "ONE" | "S" | "XL" | "XS" | "XXL" | null;
+    colour: string | null;
+    colourHex: string | null;
     sku: string | null;
     price: number | null;
     stock: number | null;
-    options: null;
   }> | null;
   seo: {
     title: string | null;
@@ -577,13 +611,144 @@ export type PRODUCT_SEO_BY_SLUG_QUERY_RESULT = {
   } | null;
 } | null;
 
+// Source: ../web/src/infrastructure/sanity/queries.ts
+// Variable: SITE_SETTINGS_QUERY
+// Query: *[_id == "siteSettings"][0]{    storeName,    tagline,    heroHeading,    heroText,    "logo": logo{  "assetId": asset._ref,  alt,  hotspot},    announcement,    contactEmail,    contactPhone,    whatsapp,    social,    currency,    shipping,    enabledPaymentMethods,    paymentInstructions,    jerseyCustomisationFee,    "defaultSeo": defaultSeo{      title,      description,      "shareImage": image{  "assetId": asset._ref,  alt,  hotspot}    }  }
+export type SITE_SETTINGS_QUERY_RESULT =
+  | {
+      storeName: null;
+      tagline: null;
+      heroHeading: null;
+      heroText: null;
+      logo: null;
+      announcement: null;
+      contactEmail: null;
+      contactPhone: null;
+      whatsapp: null;
+      social: null;
+      currency: null;
+      shipping: null;
+      enabledPaymentMethods: null;
+      paymentInstructions: null;
+      jerseyCustomisationFee: null;
+      defaultSeo: null;
+    }
+  | {
+      storeName: null;
+      tagline: null;
+      heroHeading: null;
+      heroText: null;
+      logo: {
+        assetId: string | null;
+        alt: string | null;
+        hotspot: SanityImageHotspot | null;
+      } | null;
+      announcement: null;
+      contactEmail: null;
+      contactPhone: null;
+      whatsapp: null;
+      social: null;
+      currency: null;
+      shipping: null;
+      enabledPaymentMethods: null;
+      paymentInstructions: null;
+      jerseyCustomisationFee: null;
+      defaultSeo: null;
+    }
+  | {
+      storeName: string | null;
+      tagline: string | null;
+      heroHeading: string | null;
+      heroText: string | null;
+      logo: {
+        assetId: string | null;
+        alt: string | null;
+        hotspot: SanityImageHotspot | null;
+      } | null;
+      announcement: {
+        enabled?: boolean;
+        text?: string;
+        href?: string;
+      } | null;
+      contactEmail: string | null;
+      contactPhone: string | null;
+      whatsapp: string | null;
+      social: {
+        facebook?: string;
+        instagram?: string;
+        tiktok?: string;
+        youtube?: string;
+      } | null;
+      currency: string | null;
+      shipping: {
+        insideDhakaFee?: number;
+        outsideDhakaFee?: number;
+        freeShippingThreshold?: number;
+      } | null;
+      enabledPaymentMethods: Array<string> | null;
+      paymentInstructions: {
+        bkashNumber?: string;
+        nagadNumber?: string;
+        bankDetails?: string;
+      } | null;
+      jerseyCustomisationFee: number | null;
+      defaultSeo: {
+        title: string | null;
+        description: string | null;
+        shareImage: {
+          assetId: string | null;
+          alt: null;
+          hotspot: SanityImageHotspot | null;
+        } | null;
+      } | null;
+    }
+  | null;
+
+// Source: ../web/src/infrastructure/sanity/queries.ts
+// Variable: ACTIVE_SERVICES_QUERY
+// Query: *[_type == "service" && status == "active" && defined(slug.current)] | order(title asc){    _id,    title,    "slug": slug.current,    summary,    description,    "image": image{  "assetId": asset._ref,  alt,  hotspot},    startingPrice,    minimumQuantity,    turnaroundDays  }
+export type ACTIVE_SERVICES_QUERY_RESULT = Array<{
+  _id: string;
+  title: string | null;
+  slug: string | null;
+  summary: string | null;
+  description: Array<{
+    children?: Array<{
+      marks?: Array<string>;
+      text?: string;
+      _type: "span";
+      _key: string;
+    }>;
+    style?: "blockquote" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "normal";
+    listItem?: "bullet" | "number";
+    markDefs?: Array<{
+      href?: string;
+      _type: "link";
+      _key: string;
+    }>;
+    level?: number;
+    _type: "block";
+    _key: string;
+  }> | null;
+  image: {
+    assetId: string | null;
+    alt: string | null;
+    hotspot: SanityImageHotspot | null;
+  } | null;
+  startingPrice: number | null;
+  minimumQuantity: number | null;
+  turnaroundDays: number | null;
+}>;
+
 // Query TypeMap
 declare global {
   interface SanityQueries {
-    '\n  *[_type == "product" && status == "active" && defined(slug.current)]{\n    \n  _id,\n  name,\n  "slug": slug.current,\n  excerpt,\n  price,\n  compareAtPrice,\n  stock,\n  "primaryImage": images[0]{\n  "assetId": asset._ref,\n  alt,\n  hotspot\n},\n  "brand": brand->{name, "slug": slug.current},\n  "variants": variants[]{stock}\n\n  }\n': PURCHASABLE_PRODUCTS_QUERY_RESULT;
-    '\n  *[_type == "product" && slug.current == $slug][0]{\n    _id,\n    name,\n    "slug": slug.current,\n    excerpt,\n    description,\n    status,\n    price,\n    compareAtPrice,\n    sku,\n    stock,\n    "images": images[]{\n  "assetId": asset._ref,\n  alt,\n  hotspot\n},\n    "brand": brand->{name, "slug": slug.current},\n    "categories": categories[]->{_id, title, "slug": slug.current},\n    "variants": variants[]{\n      _key,\n      title,\n      sku,\n      price,\n      stock,\n      "options": options[]{name, value}\n    },\n    "seo": seo{\n      title,\n      description,\n      "shareImage": image{\n  "assetId": asset._ref,\n  alt,\n  hotspot\n}\n    }\n  }\n': PRODUCT_BY_SLUG_QUERY_RESULT;
+    '\n  *[_type == "product" && status == "active" && defined(slug.current)]{\n    \n  _id,\n  name,\n  "slug": slug.current,\n  excerpt,\n  productType,\n  featured,\n  price,\n  compareAtPrice,\n  stock,\n  "primaryImage": images[0]{\n  "assetId": asset._ref,\n  alt,\n  hotspot\n},\n  "brand": brand->{name, "slug": slug.current},\n  "variants": variants[]{stock, colour, colourHex}\n\n  }\n': PURCHASABLE_PRODUCTS_QUERY_RESULT;
+    '\n  *[_type == "product" && slug.current == $slug][0]{\n    _id,\n    name,\n    "slug": slug.current,\n    excerpt,\n    description,\n    status,\n    productType,\n    featured,\n    price,\n    compareAtPrice,\n    sku,\n    stock,\n    fabric,\n    gsm,\n    fit,\n    audience,\n    careInstructions,\n    "sizeChart": sizeChart{\n  "assetId": asset._ref,\n  alt,\n  hotspot\n},\n    team,\n    season,\n    kitType,\n    customisable,\n    "images": images[]{\n  "assetId": asset._ref,\n  alt,\n  hotspot\n},\n    "brand": brand->{name, "slug": slug.current},\n    "categories": categories[]->{_id, title, "slug": slug.current},\n    "variants": variants[]{\n  _key,\n  size,\n  colour,\n  colourHex,\n  sku,\n  price,\n  stock\n},\n    "seo": seo{\n      title,\n      description,\n      "shareImage": image{\n  "assetId": asset._ref,\n  alt,\n  hotspot\n}\n    }\n  }\n': PRODUCT_BY_SLUG_QUERY_RESULT;
     '\n  *[_type == "product" && status == "active" && defined(slug.current)].slug.current\n': PURCHASABLE_PRODUCT_SLUGS_QUERY_RESULT;
     '\n  *[_type == "product" && slug.current == $slug][0]{\n    name,\n    excerpt,\n    "seo": seo{\n      title,\n      description,\n      "shareImage": image{\n  "assetId": asset._ref,\n  alt,\n  hotspot\n}\n    }\n  }\n': PRODUCT_SEO_BY_SLUG_QUERY_RESULT;
+    '\n  *[_id == "siteSettings"][0]{\n    storeName,\n    tagline,\n    heroHeading,\n    heroText,\n    "logo": logo{\n  "assetId": asset._ref,\n  alt,\n  hotspot\n},\n    announcement,\n    contactEmail,\n    contactPhone,\n    whatsapp,\n    social,\n    currency,\n    shipping,\n    enabledPaymentMethods,\n    paymentInstructions,\n    jerseyCustomisationFee,\n    "defaultSeo": defaultSeo{\n      title,\n      description,\n      "shareImage": image{\n  "assetId": asset._ref,\n  alt,\n  hotspot\n}\n    }\n  }\n': SITE_SETTINGS_QUERY_RESULT;
+    '\n  *[_type == "service" && status == "active" && defined(slug.current)] | order(title asc){\n    _id,\n    title,\n    "slug": slug.current,\n    summary,\n    description,\n    "image": image{\n  "assetId": asset._ref,\n  alt,\n  hotspot\n},\n    startingPrice,\n    minimumQuantity,\n    turnaroundDays\n  }\n': ACTIVE_SERVICES_QUERY_RESULT;
   }
 }
 // Lets @sanity/client releases that predate the global registry read it too
