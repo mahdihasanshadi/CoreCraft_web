@@ -1,0 +1,184 @@
+import {defineArrayMember, defineField, defineType} from 'sanity'
+import {CogIcon} from '@sanity/icons/Cog'
+
+import {paymentMethods} from '../objects/payment-details'
+
+/** A singleton. Structure pins it to the fixed document ID "siteSettings". */
+export const siteSettings = defineType({
+  name: 'siteSettings',
+  title: 'Site settings',
+  type: 'document',
+  icon: CogIcon,
+  groups: [
+    {name: 'brand', title: 'Brand', default: true},
+    {name: 'contact', title: 'Contact'},
+    {name: 'commerce', title: 'Commerce'},
+    {name: 'seo', title: 'SEO'},
+  ],
+  fields: [
+    defineField({
+      name: 'storeName',
+      title: 'Store name',
+      type: 'string',
+      group: 'brand',
+      initialValue: 'CoreCraft',
+      validation: (rule) => rule.required(),
+    }),
+    defineField({
+      name: 'tagline',
+      title: 'Tagline',
+      type: 'string',
+      group: 'brand',
+      description: 'The one line under the store name on the home page.',
+    }),
+    defineField({
+      name: 'heroHeading',
+      title: 'Home page heading',
+      type: 'string',
+      group: 'brand',
+    }),
+    defineField({
+      name: 'heroText',
+      title: 'Home page intro',
+      type: 'text',
+      rows: 3,
+      group: 'brand',
+    }),
+    defineField({
+      name: 'logo',
+      title: 'Logo',
+      type: 'image',
+      group: 'brand',
+      options: {hotspot: true},
+      fields: [defineField({name: 'alt', title: 'Alternative text', type: 'string'})],
+    }),
+    defineField({
+      name: 'announcement',
+      title: 'Announcement bar',
+      type: 'object',
+      group: 'brand',
+      options: {collapsible: true, collapsed: true},
+      fields: [
+        defineField({
+          name: 'enabled',
+          title: 'Show the bar',
+          type: 'boolean',
+          initialValue: false,
+        }),
+        defineField({name: 'text', title: 'Text', type: 'string'}),
+        defineField({name: 'href', title: 'Link', type: 'string'}),
+      ],
+    }),
+    defineField({
+      name: 'contactEmail',
+      title: 'Contact email',
+      type: 'string',
+      group: 'contact',
+      validation: (rule) => rule.email(),
+    }),
+    defineField({name: 'contactPhone', title: 'Contact phone', type: 'string', group: 'contact'}),
+    defineField({
+      name: 'whatsapp',
+      title: 'WhatsApp number',
+      type: 'string',
+      group: 'contact',
+      description: 'International format without spaces, for example +8801XXXXXXXXX.',
+    }),
+    defineField({
+      name: 'social',
+      title: 'Social links',
+      type: 'object',
+      group: 'contact',
+      options: {collapsible: true, collapsed: false},
+      fields: [
+        defineField({name: 'facebook', type: 'url'}),
+        defineField({name: 'instagram', type: 'url'}),
+        defineField({name: 'tiktok', title: 'TikTok', type: 'url'}),
+        defineField({name: 'youtube', title: 'YouTube', type: 'url'}),
+      ],
+    }),
+    defineField({
+      name: 'currency',
+      title: 'Currency',
+      type: 'string',
+      group: 'commerce',
+      initialValue: 'BDT',
+      readOnly: true,
+      description: 'Changing currency is a code change, not a content change.',
+    }),
+    defineField({
+      name: 'shipping',
+      title: 'Delivery charges',
+      type: 'object',
+      group: 'commerce',
+      fields: [
+        defineField({
+          name: 'insideDhakaFee',
+          title: 'Inside Dhaka',
+          type: 'number',
+          initialValue: 70,
+          validation: (rule) => rule.required().min(0),
+        }),
+        defineField({
+          name: 'outsideDhakaFee',
+          title: 'Outside Dhaka',
+          type: 'number',
+          initialValue: 130,
+          validation: (rule) => rule.required().min(0),
+        }),
+        defineField({
+          name: 'freeShippingThreshold',
+          title: 'Free delivery from',
+          type: 'number',
+          description: 'Order subtotal at which delivery becomes free. Leave empty to disable.',
+          validation: (rule) => rule.min(0),
+        }),
+      ],
+    }),
+    defineField({
+      name: 'enabledPaymentMethods',
+      title: 'Payment methods offered',
+      type: 'array',
+      group: 'commerce',
+      of: [defineArrayMember({type: 'string'})],
+      options: {list: [...paymentMethods]},
+      initialValue: ['cod', 'bkash'],
+      validation: (rule) => rule.required().min(1).unique(),
+    }),
+    defineField({
+      name: 'paymentInstructions',
+      title: 'Payment instructions',
+      type: 'object',
+      group: 'commerce',
+      description: 'Shown to the shopper after choosing a mobile wallet or bank transfer.',
+      options: {collapsible: true, collapsed: true},
+      fields: [
+        defineField({name: 'bkashNumber', title: 'bKash merchant number', type: 'string'}),
+        defineField({name: 'nagadNumber', title: 'Nagad merchant number', type: 'string'}),
+        defineField({name: 'bankDetails', title: 'Bank account details', type: 'text', rows: 4}),
+      ],
+    }),
+    defineField({
+      name: 'jerseyCustomisationFee',
+      title: 'Name and number print fee',
+      type: 'number',
+      group: 'commerce',
+      description: 'Added per jersey when a shopper asks for a printed name and number.',
+      initialValue: 150,
+      validation: (rule) => rule.min(0),
+    }),
+    defineField({
+      name: 'defaultSeo',
+      title: 'Default SEO',
+      type: 'seo',
+      group: 'seo',
+      description: 'Used when a page has no SEO fields of its own.',
+    }),
+  ],
+  preview: {
+    select: {title: 'storeName', media: 'logo'},
+    prepare({title, media}) {
+      return {title: title ?? 'Site settings', subtitle: 'Store-wide settings', media}
+    },
+  },
+})

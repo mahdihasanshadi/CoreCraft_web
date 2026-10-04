@@ -1,18 +1,83 @@
-import {defineConfig} from 'sanity'
+import {defineConfig, type DocumentActionComponent, type Template} from 'sanity'
+import {presentationTool} from 'sanity/presentation'
 import {structureTool} from 'sanity/structure'
 import {visionTool} from '@sanity/vision'
-import {schemaTypes} from './schemaTypes'
 
-export default defineConfig({
-  name: 'default',
-  title: 'CoreCraft',
+import {resolve} from './presentation/resolve'
+import {commerceTypes, contentTypes} from './schemaTypes'
+import {commerceStructure} from './structure/commerce'
+import {contentDefaultDocumentNode, contentStructure} from './structure/content'
 
-  projectId: '3krwldhr',
-  dataset: 'production',
+const projectId = '3krwldhr'
+const previewOrigin = process.env.SANITY_STUDIO_PREVIEW_ORIGIN ?? 'http://localhost:3000'
 
-  plugins: [structureTool(), visionTool()],
+/** Fixed-ID documents that must never be created twice or deleted. */
+const SINGLETONS = ['siteSettings']
 
-  schema: {
-    types: schemaTypes,
+/** Types the storefront writes. Editors can edit them, not create them by hand. */
+const STOREFRONT_ONLY = ['productInterest']
+
+const LOCKED_SINGLETON_ACTIONS = new Set(['delete', 'duplicate', 'unpublish'])
+
+function hideFromCreateMenu(templates: Template[], hidden: string[]) {
+  return templates.filter((template) => !hidden.includes(template.schemaType))
+}
+
+/**
+ * Two workspaces, one Studio.
+ *
+ * "Content" is the public catalogue on the `production` dataset. "Commerce"
+ * is the private `commerce` dataset holding orders, customers and enquiries.
+ * Keeping them in separate datasets is what lets the storefront read the
+ * catalogue without a token while personal data stays locked.
+ */
+export default defineConfig([
+  {
+    name: 'content',
+    title: 'CoreCraft · Content',
+    subtitle: 'Products, collections, services',
+    basePath: '/content',
+    projectId,
+    dataset: 'production',
+    plugins: [
+      structureTool({
+        structure: contentStructure,
+        defaultDocumentNode: contentDefaultDocumentNode,
+      }),
+      presentationTool({
+        resolve,
+        previewUrl: {
+          origin: previewOrigin,
+          previewMode: {enable: '/api/draft-mode/enable'},
+        },
+      }),
+      visionTool({defaultApiVersion: '2026-10-04'}),
+    ],
+    schema: {
+      types: contentTypes,
+      templates: (templates) => hideFromCreateMenu(templates, SINGLETONS),
+    },
+    document: {
+      actions: (actions, {schemaType}) =>
+        SINGLETONS.includes(schemaType)
+          ? actions.filter(
+              (action: DocumentActionComponent) =>
+                !action.action || !LOCKED_SINGLETON_ACTIONS.has(action.action),
+            )
+          : actions,
+    },
   },
-})
+  {
+    name: 'commerce',
+    title: 'CoreCraft · Commerce',
+    subtitle: 'Orders, enquiries, customers',
+    basePath: '/commerce',
+    projectId,
+    dataset: 'commerce',
+    plugins: [structureTool({structure: commerceStructure}), visionTool({defaultApiVersion: '2026-10-04'})],
+    schema: {
+      types: commerceTypes,
+      templates: (templates) => hideFromCreateMenu(templates, STOREFRONT_ONLY),
+    },
+  },
+])

@@ -37,16 +37,76 @@ export type Seo = {
 
 export type ProductVariant = {
   _type: "productVariant";
-  title?: string;
+  size?: "XS" | "S" | "M" | "L" | "XL" | "XXL" | "3XL" | "ONE";
+  colour?: string;
+  colourHex?: string;
   sku?: string;
   price?: number;
   stock?: number;
-  options?: Array<{
-    name?: string;
-    value?: string;
-    _type: "option";
+};
+
+export type Service = {
+  _id: string;
+  _type: "service";
+  _createdAt: string;
+  _updatedAt: string;
+  _rev: string;
+  title?: string;
+  slug?: Slug;
+  status?: "draft" | "active" | "paused";
+  summary?: string;
+  description?: Array<{
+    children?: Array<{
+      marks?: Array<string>;
+      text?: string;
+      _type: "span";
+      _key: string;
+    }>;
+    style?: "normal" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "blockquote";
+    listItem?: "bullet" | "number";
+    markDefs?: Array<{
+      href?: string;
+      _type: "link";
+      _key: string;
+    }>;
+    level?: number;
+    _type: "block";
     _key: string;
   }>;
+  image?: {
+    asset?: SanityImageAssetReference;
+    media?: unknown;
+    hotspot?: SanityImageHotspot;
+    crop?: SanityImageCrop;
+    alt?: string;
+    _type: "image";
+  };
+  startingPrice?: number;
+  minimumQuantity?: number;
+  turnaroundDays?: number;
+  seo?: Seo;
+};
+
+export type SanityImageCrop = {
+  _type: "sanity.imageCrop";
+  top?: number;
+  bottom?: number;
+  left?: number;
+  right?: number;
+};
+
+export type SanityImageHotspot = {
+  _type: "sanity.imageHotspot";
+  x?: number;
+  y?: number;
+  height?: number;
+  width?: number;
+};
+
+export type Slug = {
+  _type: "slug";
+  current?: string;
+  source?: string;
 };
 
 export type ProductReference = {
@@ -79,28 +139,6 @@ export type Collection = {
     } & ProductReference
   >;
   seo?: Seo;
-};
-
-export type SanityImageCrop = {
-  _type: "sanity.imageCrop";
-  top?: number;
-  bottom?: number;
-  left?: number;
-  right?: number;
-};
-
-export type SanityImageHotspot = {
-  _type: "sanity.imageHotspot";
-  x?: number;
-  y?: number;
-  height?: number;
-  width?: number;
-};
-
-export type Slug = {
-  _type: "slug";
-  current?: string;
-  source?: string;
 };
 
 export type CategoryReference = {
@@ -146,6 +184,8 @@ export type Product = {
   _rev: string;
   name?: string;
   slug?: Slug;
+  productType?:
+    "tshirt" | "dropShoulder" | "footballJersey" | "cricketJersey" | "other";
   images?: Array<{
     asset?: SanityImageAssetReference;
     media?: unknown;
@@ -186,6 +226,24 @@ export type Product = {
         _key: string;
       }
   >;
+  featured?: boolean;
+  fabric?: string;
+  gsm?: number;
+  fit?: "regular" | "oversized" | "dropShoulder" | "slim" | "player";
+  audience?: "unisex" | "men" | "women" | "kids";
+  careInstructions?: Array<string>;
+  sizeChart?: {
+    asset?: SanityImageAssetReference;
+    media?: unknown;
+    hotspot?: SanityImageHotspot;
+    crop?: SanityImageCrop;
+    alt?: string;
+    _type: "image";
+  };
+  team?: string;
+  season?: string;
+  kitType?: "home" | "away" | "third" | "goalkeeper" | "training" | "retro";
+  customisable?: boolean;
   status?: "draft" | "active" | "archived";
   price?: number;
   compareAtPrice?: number;
@@ -224,6 +282,54 @@ export type Brand = {
   description?: string;
   website?: string;
   seo?: Seo;
+};
+
+export type SiteSettings = {
+  _id: string;
+  _type: "siteSettings";
+  _createdAt: string;
+  _updatedAt: string;
+  _rev: string;
+  storeName?: string;
+  tagline?: string;
+  heroHeading?: string;
+  heroText?: string;
+  logo?: {
+    asset?: SanityImageAssetReference;
+    media?: unknown;
+    hotspot?: SanityImageHotspot;
+    crop?: SanityImageCrop;
+    alt?: string;
+    _type: "image";
+  };
+  announcement?: {
+    enabled?: boolean;
+    text?: string;
+    href?: string;
+  };
+  contactEmail?: string;
+  contactPhone?: string;
+  whatsapp?: string;
+  social?: {
+    facebook?: string;
+    instagram?: string;
+    tiktok?: string;
+    youtube?: string;
+  };
+  currency?: string;
+  shipping?: {
+    insideDhakaFee?: number;
+    outsideDhakaFee?: number;
+    freeShippingThreshold?: number;
+  };
+  enabledPaymentMethods?: Array<string>;
+  paymentInstructions?: {
+    bkashNumber?: string;
+    nagadNumber?: string;
+    bankDetails?: string;
+  };
+  jerseyCustomisationFee?: number;
+  defaultSeo?: Seo;
 };
 
 export type SanityImagePaletteSwatch = {
@@ -327,16 +433,18 @@ export type AllSanitySchemaTypes =
   | SanityImageAssetReference
   | Seo
   | ProductVariant
-  | ProductReference
-  | Collection
+  | Service
   | SanityImageCrop
   | SanityImageHotspot
   | Slug
+  | ProductReference
+  | Collection
   | CategoryReference
   | Category
   | BrandReference
   | Product
   | Brand
+  | SiteSettings
   | SanityImagePaletteSwatch
   | SanityImagePalette
   | SanityImageDimensions
@@ -430,14 +538,11 @@ export type PRODUCT_BY_SLUG_QUERY_RESULT = {
   }> | null;
   variants: Array<{
     _key: string;
-    title: string | null;
+    title: null;
     sku: string | null;
     price: number | null;
     stock: number | null;
-    options: Array<{
-      name: string | null;
-      value: string | null;
-    }> | null;
+    options: null;
   }> | null;
   seo: {
     title: string | null;
