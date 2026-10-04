@@ -73,6 +73,27 @@ After changing a schema:
 cd studio && npx sanity schemas deploy && npm run typegen
 ```
 
+### Running the shop from the Studio
+
+The Commerce workspace opens on **Overview**: today's and this month's
+orders and revenue, orders needing attention, cash still out with couriers,
+new enquiries, open interest signals, the latest orders and products running
+low. Every order document has two actions in its menu:
+
+- **Cash collected**: records the amount and time as paid and marks the
+  order delivered. This is how cash-on-delivery orders stop showing "Unpaid".
+- **Next step**: Confirm order, Start preparing, Hand to courier, Mark
+  delivered, always offering the following stage.
+
+Editors cannot delete orders, only cancel them; administrators can delete.
+Products have a **New t-shirt / drop shoulder / football jersey / cricket
+jersey** template so the right fields show from the start, and an
+**Insights** tab with demand and sales for that product.
+
+Photos on products and category tiles are a mix of generated placeholders and
+free Pexels photos (asset credit lines say which). Replace them with your own
+shoots in the same fields.
+
 ## Storefront architecture
 
 `web/src` follows Clean Architecture. Dependencies point inward only.
