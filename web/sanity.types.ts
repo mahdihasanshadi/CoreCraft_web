@@ -740,6 +740,52 @@ export type ACTIVE_SERVICES_QUERY_RESULT = Array<{
   turnaroundDays: number | null;
 }>;
 
+// Source: ../web/src/infrastructure/sanity/queries.ts
+// Variable: COLLECTIONS_QUERY
+// Query: *[_type == "collection" && defined(slug.current)] | order(title asc){    _id,    title,    "slug": slug.current,    description,    "heroImage": image{  "assetId": asset._ref,  alt,  hotspot},    "products": products[]->[_type == "product" && status == "active" && defined(slug.current)]{        _id,  name,  "slug": slug.current,  excerpt,  productType,  featured,  price,  compareAtPrice,  stock,  "primaryImage": images[0]{  "assetId": asset._ref,  alt,  hotspot},  "brand": brand->{name, "slug": slug.current},  "variants": variants[]{stock, colour, colourHex}    }  }
+export type COLLECTIONS_QUERY_RESULT = Array<{
+  _id: string;
+  title: string | null;
+  slug: string | null;
+  description: string | null;
+  heroImage: {
+    assetId: string | null;
+    alt: string | null;
+    hotspot: SanityImageHotspot | null;
+  } | null;
+  products: Array<{
+    _id: string;
+    name: string | null;
+    slug: string | null;
+    excerpt: string | null;
+    productType:
+      | "cricketJersey"
+      | "dropShoulder"
+      | "footballJersey"
+      | "other"
+      | "tshirt"
+      | null;
+    featured: boolean | null;
+    price: number | null;
+    compareAtPrice: number | null;
+    stock: number | null;
+    primaryImage: {
+      assetId: string | null;
+      alt: string | null;
+      hotspot: SanityImageHotspot | null;
+    } | null;
+    brand: {
+      name: string | null;
+      slug: string | null;
+    } | null;
+    variants: Array<{
+      stock: number | null;
+      colour: string | null;
+      colourHex: string | null;
+    }> | null;
+  }> | null;
+}>;
+
 // Query TypeMap
 declare global {
   interface SanityQueries {
@@ -749,6 +795,7 @@ declare global {
     '\n  *[_type == "product" && slug.current == $slug][0]{\n    name,\n    excerpt,\n    "seo": seo{\n      title,\n      description,\n      "shareImage": image{\n  "assetId": asset._ref,\n  alt,\n  hotspot\n}\n    }\n  }\n': PRODUCT_SEO_BY_SLUG_QUERY_RESULT;
     '\n  *[_id == "siteSettings"][0]{\n    storeName,\n    tagline,\n    heroHeading,\n    heroText,\n    "logo": logo{\n  "assetId": asset._ref,\n  alt,\n  hotspot\n},\n    announcement,\n    contactEmail,\n    contactPhone,\n    whatsapp,\n    social,\n    currency,\n    shipping,\n    enabledPaymentMethods,\n    paymentInstructions,\n    jerseyCustomisationFee,\n    "defaultSeo": defaultSeo{\n      title,\n      description,\n      "shareImage": image{\n  "assetId": asset._ref,\n  alt,\n  hotspot\n}\n    }\n  }\n': SITE_SETTINGS_QUERY_RESULT;
     '\n  *[_type == "service" && status == "active" && defined(slug.current)] | order(title asc){\n    _id,\n    title,\n    "slug": slug.current,\n    summary,\n    description,\n    "image": image{\n  "assetId": asset._ref,\n  alt,\n  hotspot\n},\n    startingPrice,\n    minimumQuantity,\n    turnaroundDays\n  }\n': ACTIVE_SERVICES_QUERY_RESULT;
+    '\n  *[_type == "collection" && defined(slug.current)] | order(title asc){\n    _id,\n    title,\n    "slug": slug.current,\n    description,\n    "heroImage": image{\n  "assetId": asset._ref,\n  alt,\n  hotspot\n},\n    "products": products[]->[_type == "product" && status == "active" && defined(slug.current)]{\n      \n  _id,\n  name,\n  "slug": slug.current,\n  excerpt,\n  productType,\n  featured,\n  price,\n  compareAtPrice,\n  stock,\n  "primaryImage": images[0]{\n  "assetId": asset._ref,\n  alt,\n  hotspot\n},\n  "brand": brand->{name, "slug": slug.current},\n  "variants": variants[]{stock, colour, colourHex}\n\n    }\n  }\n': COLLECTIONS_QUERY_RESULT;
   }
 }
 // Lets @sanity/client releases that predate the global registry read it too

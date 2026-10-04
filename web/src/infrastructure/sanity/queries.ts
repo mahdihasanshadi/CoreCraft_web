@@ -39,9 +39,11 @@ const PRODUCT_SUMMARY_PROJECTION = /* groq */ `
   "variants": variants[]{stock, colour, colourHex}
 `
 
+const PURCHASABLE = /* groq */ `_type == "product" && status == "active" && defined(slug.current)`
+
 /** Only products an editor has marked active and given a slug. */
 export const PURCHASABLE_PRODUCTS_QUERY = defineQuery(`
-  *[_type == "product" && status == "active" && defined(slug.current)]{
+  *[${PURCHASABLE}]{
     ${PRODUCT_SUMMARY_PROJECTION}
   }
 `)
@@ -83,7 +85,7 @@ export const PRODUCT_BY_SLUG_QUERY = defineQuery(`
 `)
 
 export const PURCHASABLE_PRODUCT_SLUGS_QUERY = defineQuery(`
-  *[_type == "product" && status == "active" && defined(slug.current)].slug.current
+  *[${PURCHASABLE}].slug.current
 `)
 
 export const PRODUCT_SEO_BY_SLUG_QUERY = defineQuery(`
@@ -135,5 +137,23 @@ export const ACTIVE_SERVICES_QUERY = defineQuery(`
     startingPrice,
     minimumQuantity,
     turnaroundDays
+  }
+`)
+
+/**
+ * Collections with their products in editor order. Products that are no
+ * longer purchasable are dropped at query time so a stale reference never
+ * reaches the page.
+ */
+export const COLLECTIONS_QUERY = defineQuery(`
+  *[_type == "collection" && defined(slug.current)] | order(title asc){
+    _id,
+    title,
+    "slug": slug.current,
+    description,
+    "heroImage": image{${IMAGE_PROJECTION}},
+    "products": products[]->[${PURCHASABLE}]{
+      ${PRODUCT_SUMMARY_PROJECTION}
+    }
   }
 `)

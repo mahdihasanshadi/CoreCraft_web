@@ -1,6 +1,7 @@
 import {makeGetProductDetail, type GetProductDetail} from '@/application/use-cases/get-product-detail'
 import {makeGetProductSeo, type GetProductSeo} from '@/application/use-cases/get-product-seo'
 import {makeGetSiteSettings, type GetSiteSettings} from '@/application/use-cases/get-site-settings'
+import {makeListCollections, type ListCollections} from '@/application/use-cases/list-collections'
 import {makeListProductSlugs, type ListProductSlugs} from '@/application/use-cases/list-product-slugs'
 import {
   makeListStorefrontProducts,
@@ -24,6 +25,7 @@ import {
 import type {ImageUrlResolver} from '@/core/ports/image-url-resolver'
 import {storefrontConfig, type StorefrontConfig} from '@/infrastructure/config/env'
 import {createManualPaymentGateway} from '@/infrastructure/payments/manual-payment-gateway'
+import {createSanityCollectionRepository} from '@/infrastructure/sanity/sanity-collection-repository'
 import {
   createSanityCustomerRepository,
   createSanityOrderRepository,
@@ -48,6 +50,7 @@ import {createSanitySiteSettingsRepository} from '@/infrastructure/sanity/sanity
 const {currency} = storefrontConfig
 
 const products = createSanityProductRepository({currency})
+const collections = createSanityCollectionRepository({currency})
 const settings = createSanitySiteSettingsRepository({currency, fallbackStoreName: 'CoreCraft'})
 const serviceRepository = createSanityServiceRepository({currency})
 const customers = createSanityCustomerRepository()
@@ -60,6 +63,7 @@ const paymentGateways = [createManualPaymentGateway()]
 
 export interface UseCases {
   readonly listStorefrontProducts: ListStorefrontProducts
+  readonly listCollections: ListCollections
   readonly getProductDetail: GetProductDetail
   readonly listProductSlugs: ListProductSlugs
   readonly getProductSeo: GetProductSeo
@@ -73,6 +77,7 @@ export interface UseCases {
 
 export const useCases: UseCases = {
   listStorefrontProducts: makeListStorefrontProducts({products}),
+  listCollections: makeListCollections({collections}),
   getProductDetail: makeGetProductDetail({products}),
   listProductSlugs: makeListProductSlugs({products}),
   getProductSeo: makeGetProductSeo({products}),
@@ -89,10 +94,7 @@ export interface Services {
   readonly storefront: StorefrontConfig
 }
 
-export const servicesRegistry: Services = {
+export const services: Services = {
   imageUrls: createSanityImageUrlResolver(),
   storefront: storefrontConfig,
 }
-
-/** Kept under its historical name so routes read naturally. */
-export const services = servicesRegistry
