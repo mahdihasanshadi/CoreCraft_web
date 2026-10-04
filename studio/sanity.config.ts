@@ -3,6 +3,7 @@ import {presentationTool} from 'sanity/presentation'
 import {structureTool} from 'sanity/structure'
 import {visionTool} from '@sanity/vision'
 
+import {AdvanceOrderAction, CashCollectedAction} from './actions/order-actions'
 import {FulfilmentStatusBadge, PaymentStatusBadge} from './badges/order-badges'
 import {resolve} from './presentation/resolve'
 import {commerceTypes, contentTypes} from './schemaTypes'
@@ -92,6 +93,13 @@ export default defineConfig([
     document: {
       badges: (badges, {schemaType}) =>
         schemaType === 'order' ? [PaymentStatusBadge, FulfilmentStatusBadge, ...badges] : badges,
+      actions: (actions, {schemaType, currentUser}) => {
+        if (schemaType !== 'order') return actions
+        const isAdmin = currentUser?.roles.some((role) => role.name === 'administrator') ?? false
+        // Orders are records: editors cancel them, only administrators may delete.
+        const kept = isAdmin ? actions : actions.filter((action) => action.action !== 'delete')
+        return [CashCollectedAction, AdvanceOrderAction, ...kept]
+      },
     },
   },
 ])
